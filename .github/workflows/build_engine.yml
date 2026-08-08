@@ -14,6 +14,10 @@ jobs:
     name: Build & Publish Release
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,80 +26,109 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-SDL2_image
+            mingw-w64-x86_64-SDL2_mixer
+            mingw-w64-x86_64-SDL2_ttf
 
-      - name: Verify g++ compiler
-        run: g++ --version
+      - name: Verify g++ and SDL2
+        run: |
+          g++ --version
+          pkg-config --modversion sdl2
 
       - name: Compile Mox Engine C++ Source
-        shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path "Engine/build" | Out-Null
+          set -e
 
-          # Resolve source and dependency paths
-          $SrcDir = if (Test-Path "Engine/src") { "Engine/src" } else { "src" }
-          $ThirdParty = if (Test-Path "Engine/third_party") { "Engine/third_party" } else { "third_party" }
-          $Sdl2Dir = "$ThirdParty/SDL2-2.30.2/x86_64-w64-mingw32"
+          # ─── Resolve paths ────────────────────────────────────────
+          if [ -d "Engine/src" ]; then
+            SRC_DIR="Engine/src"
+          else
+            SRC_DIR="src"
+          fi
 
-          Write-Host "Compiling from: $SrcDir"
-          Write-Host "SDL2 directory: $Sdl2Dir"
+          if [ -d "Engine/third_party" ]; then
+            THIRD_PARTY="Engine/third_party"
+          else
+            THIRD_PARTY="third_party"
+          fi
 
-          $CxxFlags = @(
-            "-std=c++17",
-            "-Wall",
-            "-O2",
-            "-I", "$SrcDir",
-            "-I", "$Sdl2Dir/include/SDL2",
-            "-I", "$ThirdParty/stb",
-            "-I", "$ThirdParty/nlohmann"
-          )
+          BUILD_DIR="Engine/build"
+          mkdir -p "$BUILD_DIR"
 
-          # Compile all .cpp source files
-          $Sources = Get-ChildItem -Path $SrcDir -Filter "*.cpp" -Recurse | Select-Object -ExpandProperty FullName
-          foreach ($file in $Sources) {
-            $name = [System.IO.Path]::GetFileNameWithoutExtension($file)
-            $obj = "Engine/build/$name.o"
-            Write-Host "Compiling $file -> $obj"
-            g++ @CxxFlags -c $file -o $obj
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
+          echo "Source dir  : $SRC_DIR"
+          echo "Build dir   : $BUILD_DIR"
 
-          # Link MoxEngine.exe executable
-          Write-Host "Linking MoxEngine.exe..."
-          g++ Engine/build/*.o -o Engine/build/MoxEngine.exe `
-            -L "$Sdl2Dir/lib" `
-            -lmingw32 -lSDL2main -lSDL2 `
-            -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 `
-            -lwinmm -limm32 -lole32 -loleaut32 -lshell32 `
+          # ─── SDL2 flags from MSYS2 pkg-config ─────────────────────
+          SDL2_CFLAGS=$(pkg-config --cflags sdl2 SDL2_image SDL2_mixer SDL2_ttf 2>/dev/null || echo "-I/mingw64/include/SDL2")
+          SDL2_LIBS=$(pkg-config --libs   sdl2 SDL2_image SDL2_mixer SDL2_ttf 2>/dev/null || echo "-lmingw32 -lSDL2main -lSDL2")
+
+          # ─── Compiler flags ────────────────────────────────────────
+          CXXFLAGS="-std=c++17 -O2 -w \
+            -I $SRC_DIR \
+            -I $THIRD_PARTY/stb \
+            -I $THIRD_PARTY/nlohmann \
+            $SDL2_CFLAGS"
+
+          echo "CXXFLAGS: $CXXFLAGS"
+          echo "SDL2_LIBS: $SDL2_LIBS"
+
+          # ─── Compile all .cpp files ────────────────────────────────
+          find "$SRC_DIR" -name "*.cpp" | while read -r file; do
+            name=$(basename "${file%.cpp}")
+            obj="$BUILD_DIR/${name}.o"
+            echo "  Compiling: $file -> $obj"
+            g++ $CXXFLAGS -c "$file" -o "$obj"
+          done
+
+          # ─── Link MoxEngine.exe ────────────────────────────────────
+          echo "Linking MoxEngine.exe..."
+          g++ "$BUILD_DIR"/*.o -o "$BUILD_DIR/MoxEngine.exe" \
+            $SDL2_LIBS \
+            -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 \
+            -lwinmm -limm32 -lole32 -loleaut32 -lshell32 \
             -lsetupapi -lversion -luuid -lhid -lopengl32
 
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          echo "Linked successfully!"
 
-          # Copy SDL2.dll runtime
-          if (Test-Path "$Sdl2Dir/bin/SDL2.dll") {
-            Copy-Item "$Sdl2Dir/bin/SDL2.dll" -Destination "Engine/build/" -Force
-          }
+          # ─── Copy SDL2 DLLs from MSYS2 ────────────────────────────
+          MINGW_BIN="/mingw64/bin"
+          for dll in SDL2.dll SDL2_image.dll SDL2_mixer.dll SDL2_ttf.dll; do
+            if [ -f "$MINGW_BIN/$dll" ]; then
+              cp "$MINGW_BIN/$dll" "$BUILD_DIR/"
+              echo "Copied $dll"
+            fi
+          done
 
-          # Copy scripts directory
-          $ScriptsDir = if (Test-Path "Engine/scripts") { "Engine/scripts" } else { "scripts" }
-          if (Test-Path $ScriptsDir) {
-            Copy-Item $ScriptsDir -Destination "Engine/build/scripts" -Recurse -Force
-          }
+          # ─── Copy scripts and assets ───────────────────────────────
+          for dir in "Engine/scripts" "scripts"; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "$BUILD_DIR/scripts"
+              break
+            fi
+          done
 
-          # Copy assets directory if present
-          $AssetsDir = if (Test-Path "Engine/assets") { "Engine/assets" } else { "assets" }
-          if (Test-Path $AssetsDir) {
-            Copy-Item $AssetsDir -Destination "Engine/build/assets" -Recurse -Force
-          }
+          for dir in "Engine/assets" "assets"; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "$BUILD_DIR/assets"
+              break
+            fi
+          done
 
-          Write-Host "Engine build finished successfully!"
-          Get-ChildItem -Path "Engine/build"
+          echo ""
+          echo "Build complete! Contents of Engine/build:"
+          ls -lh "$BUILD_DIR"
 
       - name: Bundle into MoxEngine.zip
         shell: powershell
         run: |
           Compress-Archive -Path "Engine/build/*" -DestinationPath "MoxEngine.zip" -Force
-          Write-Host "MoxEngine.zip package created successfully!"
+          Write-Host "MoxEngine.zip created — $($(Get-Item MoxEngine.zip).Length / 1MB) MB"
 
       - name: Publish GitHub Release (v1.0.0)
         uses: softprops/action-gh-release@v2
@@ -105,12 +138,12 @@ jobs:
           body: |
             ## ⚡ Mox Engine v1.0.0 Official Release
 
-            Pre-compiled hardware-accelerated Mox Engine release package.
+            Pre-compiled hardware-accelerated Mox Engine for Windows x64.
 
             ### 📦 Included Files:
-            - `MoxEngine.exe` (DirectX 11 & OpenGL Dual Graphics Engine)
-            - `SDL2.dll` (SDL2 Runtime)
-            - `scripts/` (NovaScript Interpreter scripts)
+            - `MoxEngine.exe` — DirectX 11 & OpenGL Dual Graphics Engine
+            - `SDL2.dll`, `SDL2_image.dll`, `SDL2_mixer.dll`, `SDL2_ttf.dll` — SDL2 Runtimes
+            - `scripts/` — NovaScript Interpreter scripts
 
             ### 🚀 Usage with Mox HUB:
             Download and install directly from Mox HUB using the GitHub Release asset URL.
