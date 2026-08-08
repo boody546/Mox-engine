@@ -128,7 +128,6 @@ jobs:
         shell: powershell
         run: |
           Compress-Archive -Path "Engine/build/*" -DestinationPath "MoxEngine.zip" -Force
-          Write-Host "MoxEngine.zip created — $($(Get-Item MoxEngine.zip).Length / 1MB) MB"
 
       - name: Publish GitHub Release (v1.0.0)
         uses: softprops/action-gh-release@v2
