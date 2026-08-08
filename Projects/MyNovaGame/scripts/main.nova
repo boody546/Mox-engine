@@ -1,0 +1,7 @@
+# MyNovaGame — 2D Platformer
+
+func _ready():
+    print("Hello from MyNovaGame!")
+
+func _process(delta):
+    pass

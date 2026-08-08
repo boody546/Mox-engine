@@ -1,0 +1,11 @@
+build/
+build_vs/
+build_mingw/
+dist/
+Engine/build/
+Engine/dist/
+*.exe
+*.zip
+*.o
+*.a
+.vs/

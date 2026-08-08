@@ -1,0 +1,93 @@
+# NovaScript — Example Game Script
+# This script demonstrates the NovaScript language used in Nova2D
+
+extends Sprite2D
+
+# ─── Properties ──────────────────────────────────────────
+var speed = 250.0
+var health = 100
+var max_health = 100
+var damage = 10
+var score = 0
+var is_alive = true
+var jump_force = -400.0
+var gravity = 800.0
+var velocity_y = 0.0
+
+# ─── Lifecycle ───────────────────────────────────────────
+func _ready():
+    print("Player spawned!")
+    print("Health: " + str(health))
+    position = vec2(100, 300)
+
+func _update(delta):
+    if not is_alive:
+        return
+    
+    # Horizontal movement
+    var velocity_x = 0.0
+    
+    if input.is_key_down("right"):
+        velocity_x += speed
+    if input.is_key_down("left"):
+        velocity_x -= speed
+    
+    # Apply gravity
+    velocity_y += gravity * delta
+    
+    # Jump
+    if input.is_key_just_pressed("space"):
+        velocity_y = jump_force
+    
+    # Update position
+    position.x += velocity_x * delta
+    position.y += velocity_y * delta
+    
+    # Floor collision (simple)
+    if position.y > 500:
+        position.y = 500
+        velocity_y = 0
+    
+    # Screen bounds
+    position.x = clamp(position.x, 0, 1280)
+
+# ─── Custom Functions ────────────────────────────────────
+func take_damage(amount):
+    health -= amount
+    print("Took " + str(amount) + " damage! HP: " + str(health))
+    if health <= 0:
+        die()
+
+func heal(amount):
+    health = min(health + amount, max_health)
+    print("Healed " + str(amount) + "! HP: " + str(health))
+
+func die():
+    is_alive = false
+    print("Game Over! Score: " + str(score))
+
+func add_score(points):
+    score += points
+    print("Score: " + str(score))
+
+# ─── Inventory System ───────────────────────────────────
+var inventory = []
+
+func add_item(item_name):
+    inventory = inventory + [item_name]
+    print("Picked up: " + item_name)
+
+func has_item(item_name):
+    for item in inventory:
+        if item == item_name:
+            return true
+    return false
+
+func show_inventory():
+    print("=== Inventory ===")
+    if len(inventory) == 0:
+        print("  (empty)")
+    else:
+        for i in range(len(inventory)):
+            print("  " + str(i + 1) + ". " + inventory[i])
+    print("=================")

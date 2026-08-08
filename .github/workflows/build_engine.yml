@@ -1,0 +1,120 @@
+name: Build Mox Engine & Release
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MinGW Toolchain
+        uses: egor-tsepkov/setup-mingw-action@v2
+        with:
+          version: 12.2.0
+
+      - name: Verify g++ compiler
+        run: g++ --version
+
+      - name: Compile Mox Engine C++ Source
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "Engine/build" | Out-Null
+
+          # Resolve source and dependency paths
+          $SrcDir = if (Test-Path "Engine/src") { "Engine/src" } else { "src" }
+          $ThirdParty = if (Test-Path "Engine/third_party") { "Engine/third_party" } else { "third_party" }
+          $Sdl2Dir = "$ThirdParty/SDL2-2.30.2/x86_64-w64-mingw32"
+
+          Write-Host "Compiling from: $SrcDir"
+          Write-Host "SDL2 directory: $Sdl2Dir"
+
+          $CxxFlags = @(
+            "-std=c++17",
+            "-Wall",
+            "-O2",
+            "-I", "$SrcDir",
+            "-I", "$Sdl2Dir/include/SDL2",
+            "-I", "$ThirdParty/stb",
+            "-I", "$ThirdParty/nlohmann"
+          )
+
+          # Compile all .cpp source files
+          $Sources = Get-ChildItem -Path $SrcDir -Filter "*.cpp" -Recurse | Select-Object -ExpandProperty FullName
+          foreach ($file in $Sources) {
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($file)
+            $obj = "Engine/build/$name.o"
+            Write-Host "Compiling $file -> $obj"
+            g++ @CxxFlags -c $file -o $obj
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          # Link MoxEngine.exe executable
+          Write-Host "Linking MoxEngine.exe..."
+          g++ Engine/build/*.o -o Engine/build/MoxEngine.exe `
+            -L "$Sdl2Dir/lib" `
+            -lmingw32 -lSDL2main -lSDL2 `
+            -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 `
+            -lwinmm -limm32 -lole32 -loleaut32 -lshell32 `
+            -lsetupapi -lversion -luuid -lhid -lopengl32
+
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # Copy SDL2.dll runtime
+          if (Test-Path "$Sdl2Dir/bin/SDL2.dll") {
+            Copy-Item "$Sdl2Dir/bin/SDL2.dll" -Destination "Engine/build/" -Force
+          }
+
+          # Copy scripts directory
+          $ScriptsDir = if (Test-Path "Engine/scripts") { "Engine/scripts" } else { "scripts" }
+          if (Test-Path $ScriptsDir) {
+            Copy-Item $ScriptsDir -Destination "Engine/build/scripts" -Recurse -Force
+          }
+
+          # Copy assets directory if present
+          $AssetsDir = if (Test-Path "Engine/assets") { "Engine/assets" } else { "assets" }
+          if (Test-Path $AssetsDir) {
+            Copy-Item $AssetsDir -Destination "Engine/build/assets" -Recurse -Force
+          }
+
+          Write-Host "Engine build finished successfully!"
+          Get-ChildItem -Path "Engine/build"
+
+      - name: Bundle into MoxEngine.zip
+        shell: powershell
+        run: |
+          Compress-Archive -Path "Engine/build/*" -DestinationPath "MoxEngine.zip" -Force
+          Write-Host "MoxEngine.zip package created successfully!"
+
+      - name: Publish GitHub Release (v1.0.0)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "Mox Engine v1.0.0"
+          body: |
+            ## ⚡ Mox Engine v1.0.0 Official Release
+
+            Pre-compiled hardware-accelerated Mox Engine release package.
+
+            ### 📦 Included Files:
+            - `MoxEngine.exe` (DirectX 11 & OpenGL Dual Graphics Engine)
+            - `SDL2.dll` (SDL2 Runtime)
+            - `scripts/` (NovaScript Interpreter scripts)
+
+            ### 🚀 Usage with Mox HUB:
+            Download and install directly from Mox HUB using the GitHub Release asset URL.
+          draft: false
+          prerelease: false
+          files: MoxEngine.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
