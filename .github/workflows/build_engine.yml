@@ -125,9 +125,15 @@ jobs:
           echo "Build complete! Contents of Engine/build:"
           ls -lh "$BUILD_DIR"
 
-      - name: Bundle into MoxEngine.zip
+      - name: Copy MinGW DLLs & Bundle
         shell: powershell
         run: |
+          # Find MinGW bin directory from PATH or default location and copy needed DLLs
+          $gccPath = (Get-Command g++).Source
+          $mingwBin = Split-Path -Path $gccPath -Parent
+          Copy-Item "$mingwBin\*.dll" -Destination "Engine/build/" -ErrorAction SilentlyContinue
+          
+          # Compress everything including DLLs into MoxEngine.zip
           Compress-Archive -Path "Engine/build/*" -DestinationPath "MoxEngine.zip" -Force
 
       - name: Upload Build Artifact
