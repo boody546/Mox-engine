@@ -129,25 +129,18 @@ jobs:
         run: |
           Compress-Archive -Path "Engine/build/*" -DestinationPath "MoxEngine.zip" -Force
 
-      - name: Publish GitHub Release (v1.0.0)
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoxEngine-Build
+          path: MoxEngine.zip
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
           tag_name: v1.0.0
-          name: "Mox Engine v1.0.0"
-          body: |
-            ## ⚡ Mox Engine v1.0.0 Official Release
-
-            Pre-compiled hardware-accelerated Mox Engine for Windows x64.
-
-            ### 📦 Included Files:
-            - `MoxEngine.exe` — DirectX 11 & OpenGL Dual Graphics Engine
-            - `SDL2.dll`, `SDL2_image.dll`, `SDL2_mixer.dll`, `SDL2_ttf.dll` — SDL2 Runtimes
-            - `scripts/` — NovaScript Interpreter scripts
-
-            ### 🚀 Usage with Mox HUB:
-            Download and install directly from Mox HUB using the GitHub Release asset URL.
-          draft: false
-          prerelease: false
+          name: Mox Engine v1.0.0
           files: MoxEngine.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
