@@ -8,7 +8,12 @@ message(STATUS "")
 message(STATUS "  Nova2D Engine v${PROJECT_VERSION}")
 message(STATUS "")
 
-# ─── Platform Detection ──────────────────────────────────────────
+# ─── Platform Detection & MinGW Static Linking ───────────────────
+if(MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++ -static")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+endif()
+
 if(WIN32)
     add_compile_definitions(NOVA_PLATFORM_WINDOWS)
 elseif(ANDROID)

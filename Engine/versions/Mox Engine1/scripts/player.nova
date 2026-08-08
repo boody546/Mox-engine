@@ -1,0 +1,26 @@
+# ═══════════════════════════════════════════════════════════════════
+#  player.nova — Demonstrating NovaScript Node Control
+# ═══════════════════════════════════════════════════════════════════
+
+var speed = 150.0
+var rotSpeed = 90.0
+var direction = 1.0
+
+func _ready():
+    print("[NovaScript] Node '" + get_name() + "' initialized in _ready()!")
+    print("[NovaScript] Initial position X: " + str(get_position_x()) + ", Y: " + str(get_position_y()))
+    move(20, 0)
+
+func _process(delta):
+    # Rotate node every frame
+    var currentRot = get_rotation()
+    set_rotation(currentRot + rotSpeed * delta)
+
+    # Oscillate movement along X axis
+    var posX = get_position_x()
+    if posX > 700.0:
+        direction = -1.0
+    elif posX < 200.0:
+        direction = 1.0
+
+    move(direction * speed * delta, 0)

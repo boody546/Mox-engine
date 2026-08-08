@@ -4,11 +4,11 @@
     {
       "ver": "Mox Engine1",
       "label": "Mox Engine1 (Core Build)",
-      "status": "not_installed",
+      "status": "installed",
       "date": "2026-08-08",
       "url": null,
       "desc": "Pre-compiled core Mox Engine binary — the one and only official release.",
-      "path": "C:\\Users\\walaa\\OneDrive\\Desktop\\New folder\\Engine\\versions\\Mox Engine1"
+      "path": "C:\\Users\\walaa\\OneDrive\\Desktop\\New folder\\Engine\\versions\\Mox Engine1\\MoxEngine.exe"
     }
   ]
 }

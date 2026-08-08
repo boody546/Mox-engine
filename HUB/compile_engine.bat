@@ -92,6 +92,7 @@ if "%COMPILE_OK%"=="0" (
 :: 4. Link executable directly to Engine/build/MoxEngine.exe
 echo  [4/5] Linking Engine\build\MoxEngine.exe...
 "%GXX%" "%TARGET_BUILD%\*.o" -o "%TARGET_BUILD%\MoxEngine.exe" ^
+    -static-libgcc -static-libstdc++ ^
     -L "%SDL2_DIR%\lib" ^
     -lmingw32 -lSDL2main -lSDL2 ^
     -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 ^

@@ -89,6 +89,7 @@ jobs:
           # ─── Link MoxEngine.exe ────────────────────────────────────
           echo "Linking MoxEngine.exe..."
           g++ "$BUILD_DIR"/*.o -o "$BUILD_DIR/MoxEngine.exe" \
+            -static-libgcc -static-libstdc++ \
             $SDL2_LIBS \
             -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 \
             -lwinmm -limm32 -lole32 -loleaut32 -lshell32 \

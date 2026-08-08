@@ -23,7 +23,7 @@ from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 
 # ─── GitHub Release Direct ZIP URL ─────────────────────────────────
-GITHUB_RELEASE_URL = "https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v1.0.0/MoxEngine.zip"
+GITHUB_RELEASE_URL = "https://github.com/boody546/Mox-engine/releases/download/v1.0.0/MoxEngine.zip"
 
 # ─── Paths Configuration ───────────────────────────────────────────
 HUB_DIR       = os.path.dirname(os.path.abspath(__file__))
