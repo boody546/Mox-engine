@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MinGW Toolchain
-        uses: egor-tsepkov/setup-mingw-action@v2
+      - name: Setup MinGW W64
+        uses: brechtsanders/setup-devkit@v1
         with:
-          version: 12.2.0
+          compiler: gcc
 
       - name: Verify g++ compiler
         run: g++ --version
