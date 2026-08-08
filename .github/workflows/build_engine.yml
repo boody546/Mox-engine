@@ -18,10 +18,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MinGW W64
-        uses: sysprogs/setup-devkit@v1
+      - name: Setup MSYS2 and MinGW
+        uses: msys2/setup-msys2@v2
         with:
-          toolchain: mingw-w64
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
       - name: Verify g++ compiler
         run: g++ --version
