@@ -22,6 +22,7 @@
 #include "scene/SceneLoader.h"
 #include "scene/Node.h"
 #include "scene/Node2D.h"
+#include "scene/SceneTree.h"
 #include "scene/ScriptNode.h"
 #include "core/Engine.h"
 #include "core/Logger.h"
@@ -149,7 +150,7 @@ void SceneLoader::_loadSprite2D(Node* node, const void* jPropsPtr,
     }
 
     std::string modStr = jget<std::string>(p, "modulate", "#ffffff");
-    sprite->SetModulate(_hexToColor(modStr));
+    sprite->SetModulate(SceneLoader::_hexToColor(modStr));
 
     bool fh = jget<bool>(p, "flip_h", false);
     bool fv = jget<bool>(p, "flip_v", false);
@@ -167,7 +168,7 @@ void SceneLoader::_loadLight2D(Node* node, const void* jPropsPtr) {
     const json& p = *reinterpret_cast<const json*>(jPropsPtr);
 
     std::string colStr = jget<std::string>(p, "color", "#ffffaa");
-    light->SetLightColor(_hexToColor(colStr));
+    light->SetLightColor(SceneLoader::_hexToColor(colStr));
 
     float radius = jget<float>(p, "radius", 150.0f);
     light->SetRadius(radius);
@@ -331,8 +332,8 @@ void SceneLoader::_loadParticles(Node* node, const void* jPropsPtr) {
     cfg.emitRate       = jget<float>(p, "amount",   30.0f);
     cfg.lifetime       = jget<float>(p, "lifetime",  1.5f);
     cfg.emitSpeed      = jget<float>(p, "speed",   100.0f);
-    cfg.startColor     = _hexToColor(jget<std::string>(p, "color_start", "#ffaa00"));
-    cfg.endColor       = _hexToColor(jget<std::string>(p, "color_end",   "#ff0000"));
+    cfg.startColor     = SceneLoader::_hexToColor(jget<std::string>(p, "color_start", "#ffaa00"));
+    cfg.endColor       = SceneLoader::_hexToColor(jget<std::string>(p, "color_end",   "#ff0000"));
     cfg.emitAngle      = 360.0f;
     cfg.gravity        = Vec2(0, 50.0f);
     cfg.startSize      = 6.0f;
