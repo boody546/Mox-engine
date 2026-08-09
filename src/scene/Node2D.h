@@ -7,6 +7,7 @@
 
 #include "scene/Node.h"
 #include "scene/ScriptNode.h"
+#include "rendering/Renderer2D.h"
 #include "rendering/ParticleSystem.h"
 #include "physics/PhysicsWorld.h"
 #include <string>
