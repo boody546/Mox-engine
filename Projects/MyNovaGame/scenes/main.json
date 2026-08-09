@@ -1,0 +1,45 @@
+{
+  "version": "4.0",
+  "scene": [
+    {
+      "id": "node_root",
+      "name": "MainScene",
+      "type": "Node2D",
+      "parent": null,
+      "props": {
+        "position_x": 0,
+        "position_y": 0,
+        "rotation": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "visible": true,
+        "z_index": 0
+      }
+    },
+    {
+      "id": "node_1786288583490",
+      "name": "CharacterBody2D_1",
+      "type": "CharacterBody2D",
+      "parent": "node_root",
+      "tag": "Untagged",
+      "layer": "Default",
+      "props": {
+        "position_x": 0.0,
+        "position_y": 0.0,
+        "rotation": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "speed": 200.0,
+        "jump_impulse": -400.0,
+        "gravity": 980.0,
+        "velocity_x": 0.0,
+        "velocity_y": 0.0,
+        "floor_stop_on_slope": true,
+        "shape": "Box",
+        "size_x": 40,
+        "size_y": 60,
+        "script": "C:\\Users\\walaa\\OneDrive\\Desktop\\New folder\\Projects\\MyNovaGame\\scripts\\characterbody2d_1_script.py"
+      }
+    }
+  ]
+}

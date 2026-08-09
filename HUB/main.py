@@ -1,23 +1,10 @@
 #!/usr/bin/env python3
-# ═══════════════════════════════════════════════════════════════════
-#  Mox HUB — Binary Engine Manager & Project Launcher v3.0
-#  Unity Hub / Epic Games Launcher Style (Pure Binary Manager)
-# ═══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
+#  Mox HUB — Modern Dashboard & Engine Launcher v3.5 (Pixel-Perfect Replica)
+# ═══════════════════════════════════════════════════════════════════════════
 
-import os
-import sys
-import json
-import time
-import io
-import queue
-import shutil
-import zipfile
-import tarfile
-import tempfile
-import threading
-import subprocess
-import urllib.request
-import urllib.error
+import os, sys, json, time, io, queue, shutil, zipfile, tarfile, tempfile, threading, subprocess
+import urllib.request, urllib.error
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
@@ -37,28 +24,32 @@ PROJECTS_DIR  = os.path.join(PROJECT_ROOT, "Projects")
 PROJECTS_DB   = os.path.join(HUB_DIR, "projects.json")
 VERSIONS_DB   = os.path.join(HUB_DIR, "versions.json")
 
-# ─── Design Tokens ─────────────────────────────────────────────────
-C = {
-    "bg":           "#1e1e24",
-    "sidebar":      "#16161c",
-    "card":         "#2b2d3a",
-    "card_hover":   "#343648",
-    "border":       "#383a50",
-    "accent":       "#7c9fe6",
-    "accent2":      "#a78bfa",
-    "success":      "#4ade80",
-    "warning":      "#fb923c",
-    "danger":       "#f87171",
-    "fg":           "#e2e4f0",
-    "fg2":          "#8b8fa8",
-    "fg3":          "#5a5c70",
-    "topbar":       "#13131a",
-    "btn_primary":  "#5b7fd4",
-    "btn_success":  "#22c55e",
-    "btn_danger":   "#dc2626",
-    "sidebar_sel":  "#2b2d3a",
-    "sidebar_w":    220,
-    "topbar_h":     56,
+# ─── Dashboard Design Tokens (Modern Dark Palette) ────────────────
+D = {
+    "bg":           "#0f0f12",
+    "sidebar":      "#141418",
+    "sidebar_sel":  "#1f1f26",
+    "topbar":       "#141418",
+    "footer":       "#141418",
+    "card":         "#18181c",
+    "card_hover":   "#202026",
+    "border":       "#27272a",
+    "border_input": "#2a2a35",
+    "border_radius": 8,
+    "card_border_radius": 12,
+    "input_border_radius": 6,
+    "accent_blue":  "#3b82f6",
+    "accent_hover": "#2563eb",
+    "success":      "#10b981",
+    "success_bg":   "#064e3b",
+    "warning":      "#f59e0b",
+    "danger":       "#ef4444",
+    "fg":           "#f4f4f5",
+    "fg2":          "#a1a1aa",
+    "fg3":          "#71717a",
+    "input_bg":     "#18181c",
+    "badge_bg":     "#1e293b",
+    "badge_fg":     "#60a5fa",
 }
 
 # ─── Project Templates ─────────────────────────────────────────────
@@ -67,7 +58,7 @@ TEMPLATES = [
         "id": "demo",
         "name": "Mox Interactive Demo",
         "icon": "⭐",
-        "desc": "Full Mox Engine demo with PlayerNode, Camera Shake, Particles, and NovaScript ScriptedBox.",
+        "desc": "Full Mox Engine demo with PlayerNode, Camera Shake, Particles, and NovaScript Box.",
         "tag":  "Demo",
     },
     {
@@ -88,16 +79,15 @@ TEMPLATES = [
         "id": "blank",
         "name": "Blank C++ Project",
         "icon": "🎨",
-        "desc": "Minimal setup. Empty main.cpp, CMakeLists.txt, and scripts/ folder ready.",
+        "desc": "Minimal setup. Empty main_scene.json, scripts/ and assets/ folder ready.",
         "tag":  "Blank",
     },
 ]
 
-# ─── Default Engine Releases Catalogue ──────────────────────────────
 _DEFAULT_RELEASES = [
     {
-        "ver":    "Mox Engine1",
-        "label":  "Mox Engine1 (Core Build)",
+        "ver":    "Mox Engine 1",
+        "label":  "Mox Engine 1 (Core Build)",
         "status": "installed",
         "date":   datetime.now().strftime("%Y-%m-%d"),
         "url":    None,
@@ -108,37 +98,38 @@ _DEFAULT_RELEASES = [
 
 
 # ═══════════════════════════════════════════════════════════════════
+# MAIN HUB DASHBOARD CLASS
+# ═══════════════════════════════════════════════════════════════════
 class MoxHubApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("Mox HUB")
-        self.geometry("1180x720")
-        self.minsize(900, 600)
-        self.configure(bg=C["bg"])
+        self.title("Mox HUB — Management Console")
+        self.geometry("1240x780")
+        self.minsize(980, 640)
+        self.configure(bg=D["bg"])
 
         self.active_nav     = tk.StringVar(value="projects")
+        self.search_var     = tk.StringVar()
         self.projects       = []
         self.engine_versions= []
-        self.active_version = "Mox Engine1"
+        self.active_version = "Mox Engine 1"
         self.sel_template   = tk.StringVar(value=TEMPLATES[0]["id"])
-        self.log_queue      = queue.Queue()
 
         self._ensure_dirs()
         self._auto_package_mox_engine()
         self._load_data()
         self._scan_installed_versions()
-        self._build_layout()
+        self._build_dashboard_layout()
         self._switch_nav("projects")
         self._update_status()
 
-    # ─── Setup & Auto-Packaging ───────────────────────────────────
+    # ─── Setup & Storage ──────────────────────────────────────────
     def _ensure_dirs(self):
         os.makedirs(PROJECTS_DIR, exist_ok=True)
         os.makedirs(VERSIONS_DIR, exist_ok=True)
 
     def _auto_package_mox_engine(self):
-        """Automatically packages local C++ executable into Engine/versions/Mox Engine1/MoxEngine.exe."""
         target_dir = os.path.join(VERSIONS_DIR, "Mox Engine1")
         os.makedirs(target_dir, exist_ok=True)
         target_exe = os.path.join(target_dir, "MoxEngine.exe")
@@ -150,10 +141,8 @@ class MoxHubApp(tk.Tk):
             os.path.join(ENGINE_DIR, "MoxEngine.exe"),
             os.path.join(ENGINE_DIR, "Nova2D.exe"),
         ]
-
         found_src = next((s for s in sources if os.path.exists(s)), None)
 
-        # Copy local build folder contents if available
         if os.path.exists(local_build):
             try:
                 for item in os.listdir(local_build):
@@ -163,17 +152,13 @@ class MoxHubApp(tk.Tk):
                         shutil.copytree(s, d, dirs_exist_ok=True)
                     else:
                         shutil.copy2(s, d)
-            except Exception:
-                pass
+            except Exception: pass
 
         if found_src and not os.path.exists(target_exe):
-            try:
-                shutil.copy2(found_src, target_exe)
-            except Exception:
-                pass
+            try: shutil.copy2(found_src, target_exe)
+            except Exception: pass
 
     def _load_data(self):
-        # Load Projects
         if os.path.exists(PROJECTS_DB):
             try:
                 with open(PROJECTS_DB, "r", encoding="utf-8") as f:
@@ -183,26 +168,18 @@ class MoxHubApp(tk.Tk):
         else:
             self.projects = []
 
-        # Load Versions Catalogue — enforce single-version (Mox Engine1 only)
         self.engine_versions = list(_DEFAULT_RELEASES)
-        self.active_version  = "Mox Engine1"
+        self.active_version  = "Mox Engine 1"
 
         if os.path.exists(VERSIONS_DB):
             try:
                 with open(VERSIONS_DB, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    # Pull only the Mox Engine1 entry if it was previously saved
-                    saved = next(
-                        (v for v in data.get("versions", []) if v.get("ver") == "Mox Engine1"),
-                        None
-                    )
-                    if saved:
-                        self.engine_versions = [saved]
-            except Exception:
-                pass
+                    saved = next((v for v in data.get("versions", []) if v.get("ver") in ("Mox Engine1", "Mox Engine 1")), None)
+                    if saved: self.engine_versions = [saved]
+            except Exception: pass
 
-        # Always reset active to Mox Engine1
-        self.active_version = "Mox Engine1"
+        self.active_version = "Mox Engine 1"
 
     def _save_data(self):
         with open(PROJECTS_DB, "w", encoding="utf-8") as f:
@@ -210,7 +187,7 @@ class MoxHubApp(tk.Tk):
 
         save_ver = []
         for v in self.engine_versions:
-            item = {
+            save_ver.append({
                 "ver":    v["ver"],
                 "label":  v["label"],
                 "status": v["status"],
@@ -218,399 +195,480 @@ class MoxHubApp(tk.Tk):
                 "url":    v.get("url"),
                 "desc":   v.get("desc", ""),
                 "path":   v.get("path", ""),
-            }
-            save_ver.append(item)
+            })
 
         with open(VERSIONS_DB, "w", encoding="utf-8") as f:
             json.dump({"active_version": self.active_version, "versions": save_ver},
                       f, ensure_ascii=False, indent=2)
 
     def _scan_installed_versions(self):
-        """Checks Engine/versions/Mox Engine1/ for the installed MoxEngine binary."""
         mox1_path = os.path.join(VERSIONS_DIR, "Mox Engine1")
         mox1_exe  = self._find_exe_in_dir(mox1_path)
 
-        # There is only one version: Mox Engine1
         self.engine_versions = [{
-            "ver":    "Mox Engine1",
-            "label":  "Mox Engine1 (Core Build)",
+            "ver":    "Mox Engine 1",
+            "label":  "Mox Engine 1 (Core Build)",
             "status": "installed" if mox1_exe else "not_installed",
             "date":   datetime.now().strftime("%Y-%m-%d"),
             "url":    None,
-            "desc":   "Pre-compiled core Mox Engine binary — the one and only official release.",
+            "desc":   "Pre-compiled core Mox Engine binary — official release.",
             "path":   mox1_exe or mox1_path,
         }]
-        self.active_version = "Mox Engine1"
+        self.active_version = "Mox Engine 1"
 
     def _find_exe_in_dir(self, directory):
-        """Recursively search for MoxEngine.exe, Nova2D.exe, or any .exe inside version directory."""
-        if not directory or not os.path.exists(directory):
-            return None
-        if os.path.isfile(directory) and directory.lower().endswith(".exe"):
-            return directory
-
-        # 1. Direct check MoxEngine.exe
+        if not directory or not os.path.exists(directory): return None
+        if os.path.isfile(directory) and directory.lower().endswith(".exe"): return directory
         mox_exe = os.path.join(directory, "MoxEngine.exe")
-        if os.path.exists(mox_exe):
-            return mox_exe
-
-        # 2. Direct check Nova2D.exe
+        if os.path.exists(mox_exe): return mox_exe
         nova_exe = os.path.join(directory, "Nova2D.exe")
-        if os.path.exists(nova_exe):
-            return nova_exe
-
-        # 3. Check build subfolder
+        if os.path.exists(nova_exe): return nova_exe
         for sub in ("MoxEngine.exe", "Nova2D.exe"):
-            build_exe = os.path.join(directory, "build", sub)
-            if os.path.exists(build_exe):
-                return build_exe
-
-        # 4. Recursive search for any .exe
+            b_exe = os.path.join(directory, "build", sub)
+            if os.path.exists(b_exe): return b_exe
         for root, dirs, files in os.walk(directory):
             for file in files:
-                if file.lower().endswith(".exe"):
-                    return os.path.join(root, file)
+                if file.lower().endswith(".exe"): return os.path.join(root, file)
         return None
 
     def _get_active_exe(self):
-        """Returns the executable path for the currently selected engine version with full fallbacks."""
-        # 1. Check Mox Engine1 directory specifically
         mox1_exe = self._find_exe_in_dir(os.path.join(VERSIONS_DIR, "Mox Engine1"))
-        if mox1_exe:
-            mox1_entry = next((v for v in self.engine_versions if v["ver"] == "Mox Engine1"), None)
-            if mox1_entry:
-                mox1_entry["status"] = "installed"
-                mox1_entry["path"]   = mox1_exe
-            if self.active_version == "Mox Engine1":
-                return mox1_exe
-
-        # 2. Search in active version record
-        for v in self.engine_versions:
-            if v["ver"] == self.active_version:
-                exe_path = v.get("path")
-                if exe_path:
-                    found = self._find_exe_in_dir(exe_path)
-                    if found:
-                        v["status"] = "installed"
-                        v["path"]   = found
-                        return found
-
-        # 3. Check Engine/versions/ subfolders
-        candidate_dirs = [
-            os.path.join(VERSIONS_DIR, self.active_version),
-            os.path.join(VERSIONS_DIR, f"v{self.active_version}"),
-            VERSIONS_DIR,
-        ]
-        for cdir in candidate_dirs:
-            found = self._find_exe_in_dir(cdir)
-            if found:
-                return found
-
-        # 4. Fallback to local Engine/build/ or Engine/ root
+        if mox1_exe: return mox1_exe
         for name in ("MoxEngine.exe", "Nova2D.exe"):
             p1 = os.path.join(ENGINE_DIR, "build", name)
-            if os.path.exists(p1):
-                return p1
+            if os.path.exists(p1): return p1
             p2 = os.path.join(ENGINE_DIR, name)
-            if os.path.exists(p2):
-                return p2
-
+            if os.path.exists(p2): return p2
         return None
 
-    # ─── Root Layout ───────────────────────────────────────────────
-    def _build_layout(self):
-        # Top bar
-        self.topbar = tk.Frame(self, bg=C["topbar"], height=C["topbar_h"])
-        self.topbar.pack(side="top", fill="x")
-        self.topbar.pack_propagate(False)
-        self._build_topbar()
+    # ═══════════════════════════════════════════════════════════════
+    # DASHBOARD LAYOUT BUILDER
+    # ═══════════════════════════════════════════════════════════════
+    def _build_dashboard_layout(self):
+        # 1. Main horizontal container: [Sidebar | Main Area]
+        main_box = tk.Frame(self, bg=D["bg"])
+        main_box.pack(side="top", fill="both", expand=True)
 
-        # Main Body = Sidebar + Content
-        body = tk.Frame(self, bg=C["bg"])
-        body.pack(side="top", fill="both", expand=True)
-
-        self.sidebar = tk.Frame(body, bg=C["sidebar"], width=C["sidebar_w"])
+        # ── Left Sidebar Navigation Panel ─────────────────────────
+        self.sidebar = tk.Frame(main_box, bg=D["sidebar"], width=230)
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
         self._build_sidebar()
 
-        self.main_frame = tk.Frame(body, bg=C["bg"])
-        self.main_frame.pack(side="left", fill="both", expand=True)
+        # ── Right Main Console Area ───────────────────────────────
+        self.right_area = tk.Frame(main_box, bg=D["bg"])
+        self.right_area.pack(side="left", fill="both", expand=True)
 
-        # Pages
+        # Top Bar Header
+        self.topbar = tk.Frame(self.right_area, bg=D["topbar"], height=60, padx=20)
+        self.topbar.pack(side="top", fill="x")
+        self.topbar.pack_propagate(False)
+        self._build_topbar()
+
+        # Page Container
+        self.page_container = tk.Frame(self.right_area, bg=D["bg"])
+        self.page_container.pack(side="top", fill="both", expand=True)
+
         self.pages = {}
-        for key in ("projects", "installs", "settings"):
-            page = tk.Frame(self.main_frame, bg=C["bg"])
+        for key in ("projects", "installs", "learn", "community", "settings"):
+            page = tk.Frame(self.page_container, bg=D["bg"])
             self.pages[key] = page
 
         self._build_page_projects()
         self._build_page_installs()
+        self._build_page_learn()
+        self._build_page_community()
         self._build_page_settings()
 
-    # ─── Top Bar ───────────────────────────────────────────────────
-    def _build_topbar(self):
-        # Logo
-        tk.Label(self.topbar, text="  ⚡ Mox HUB",
-                 font=("Segoe UI", 14, "bold"),
-                 bg=C["topbar"], fg=C["accent"]).pack(side="left", padx=(12, 0))
+        # 2. Bottom Fixed Engine Status Footer Bar
+        self.footer = tk.Frame(self, bg=D["footer"], height=48, padx=20, pady=4)
+        self.footer.pack(side="bottom", fill="x")
+        self.footer.pack_propagate(False)
+        self._build_footer()
 
-        # Right-side cluster
-        right = tk.Frame(self.topbar, bg=C["topbar"])
-        right.pack(side="right", padx=14)
-
-        # Active Version badge
-        self.lbl_version = tk.Label(right, text=f"{self.active_version}",
-                                    font=("Segoe UI", 9, "bold"),
-                                    bg="#2b3a5a", fg=C["accent"],
-                                    padx=10, pady=3, relief="flat")
-        self.lbl_version.pack(side="left", padx=(0, 12))
-
-        # Status badge
-        self.lbl_status = tk.Label(right, text="● MOX ENGINE READY",
-                                   font=("Segoe UI", 9, "bold"),
-                                   bg=C["topbar"], fg=C["success"])
-        self.lbl_status.pack(side="left", padx=(0, 16))
-
-        # Launch Engine button
-        self.btn_launch = self._mk_btn(right, "▶  Launch Mox Engine",
-                                       self.launch_engine,
-                                       bg=C["btn_success"], fg="#0f2318",
-                                       font=("Segoe UI", 10, "bold"), padx=18, pady=6)
-        self.btn_launch.pack(side="left")
-
-    # ─── Sidebar ───────────────────────────────────────────────────
+    # ═══════════════════════════════════════════════════════════════
+    # SIDEBAR NAVIGATION
+    # ═══════════════════════════════════════════════════════════════
     def _build_sidebar(self):
-        tk.Frame(self.sidebar, bg=C["accent"], height=2).pack(fill="x")
+        # Brand Header Logo
+        brand = tk.Frame(self.sidebar, bg=D["sidebar"], padx=18, pady=18)
+        brand.pack(fill="x")
+        tk.Label(brand, text="⚡ Mox HUB", font=("Segoe UI", 13, "bold"),
+                 bg=D["sidebar"], fg=D["fg"]).pack(anchor="w")
+        tk.Label(brand, text="Management Console", font=("Segoe UI", 8),
+                 bg=D["sidebar"], fg=D["fg3"]).pack(anchor="w", pady=(2, 0))
 
-        tk.Label(self.sidebar, text="MOX HUB",
-                 font=("Segoe UI", 8, "bold"),
-                 bg=C["sidebar"], fg=C["fg3"]).pack(pady=(16, 12))
+        tk.Frame(self.sidebar, bg=D["border"], height=1).pack(fill="x", padx=12, pady=(0, 10))
 
-        nav_items = [
-            ("projects",  "🚀", "Projects"),
-            ("installs",  "🛠️", "Installs"),
+        # Main Navigation Group
+        self.nav_btns = {}
+        main_nav = [
+            ("projects",  "📂", "Projects"),
+            ("installs",  "⬇️", "Installs"),
+            ("learn",     "🎓", "Learn"),
+            ("community", "👥", "Community"),
             ("settings",  "⚙️", "Settings"),
         ]
-        self.nav_btns = {}
-        for key, icon, label in nav_items:
-            btn = self._mk_nav_btn(key, icon, label)
+
+        for key, icon, label in main_nav:
+            btn = self._mk_nav_item(self.sidebar, key, icon, label)
             self.nav_btns[key] = btn
 
-        spacer = tk.Frame(self.sidebar, bg=C["sidebar"])
-        spacer.pack(fill="both", expand=True)
+        # Spacer
+        tk.Frame(self.sidebar, bg=D["sidebar"]).pack(fill="both", expand=True)
 
-        footer = tk.Frame(self.sidebar, bg=C["sidebar"], padx=14, pady=12)
-        footer.pack(fill="x", side="bottom")
-        tk.Label(footer, text="Mox Engine Hub",
-                 font=("Segoe UI", 8, "bold"), bg=C["sidebar"], fg=C["fg2"]).pack(anchor="w")
-        tk.Label(footer, text="Mox Engine1  |  Standalone",
-                 font=("Segoe UI", 8), bg=C["sidebar"], fg=C["fg3"]).pack(anchor="w")
+        tk.Frame(self.sidebar, bg=D["border"], height=1).pack(fill="x", padx=12, pady=6)
 
-    def _mk_nav_btn(self, key, icon, label):
-        frame = tk.Frame(self.sidebar, bg=C["sidebar"], cursor="hand2")
-        frame.pack(fill="x", padx=8, pady=3)
+        # Bottom Navigation Group
+        bottom_nav = [
+            ("support",       "❓", "Support"),
+            ("notifications", "🔔", "Notifications"),
+        ]
+        for key, icon, label in bottom_nav:
+            self._mk_nav_item(self.sidebar, key, icon, label, is_bottom=True)
 
-        inner = tk.Frame(frame, bg=C["sidebar"], pady=10, padx=14)
+    def _mk_nav_item(self, parent, key, icon, label, is_bottom=False):
+        card = tk.Frame(parent, bg=D["sidebar"], cursor="hand2", padx=6, pady=2)
+        card.pack(fill="x", padx=8, pady=2)
+
+        inner = tk.Frame(card, bg=D["sidebar"], padx=12, pady=8)
         inner.pack(fill="x")
 
-        icon_lbl = tk.Label(inner, text=icon, font=("Segoe UI", 14),
-                            bg=C["sidebar"], fg=C["fg2"])
+        icon_lbl = tk.Label(inner, text=icon, font=("Segoe UI", 11),
+                            bg=D["sidebar"], fg=D["fg2"])
         icon_lbl.pack(side="left")
 
-        text_lbl = tk.Label(inner, text=f"  {label}", font=("Segoe UI", 10, "bold"),
-                            bg=C["sidebar"], fg=C["fg2"])
+        text_lbl = tk.Label(inner, text=f"  {label}", font=("Segoe UI", 9, "bold" if not is_bottom else "normal"),
+                            bg=D["sidebar"], fg=D["fg2"])
         text_lbl.pack(side="left")
 
-        for w in (frame, inner, icon_lbl, text_lbl):
-            w.bind("<Button-1>", lambda e, k=key: self._switch_nav(k))
-            w.bind("<Enter>",    lambda e, f=inner, il=icon_lbl, tl=text_lbl: self._nav_hover(f, il, tl, True))
-            w.bind("<Leave>",    lambda e, k=key, f=inner, il=icon_lbl, tl=text_lbl: self._nav_hover(f, il, tl, False, k))
+        cmd = (lambda e, k=key: self._on_bottom_nav(k)) if is_bottom else (lambda e, k=key: self._switch_nav(k))
 
-        return (frame, inner, icon_lbl, text_lbl)
+        for w in (card, inner, icon_lbl, text_lbl):
+            w.bind("<Button-1>", cmd)
+            w.bind("<Enter>", lambda e, c=card, i=inner, il=icon_lbl, tl=text_lbl:
+                   self._nav_item_hover(c, i, il, tl, True, key, is_bottom))
+            w.bind("<Leave>", lambda e, c=card, i=inner, il=icon_lbl, tl=text_lbl:
+                   self._nav_item_hover(c, i, il, tl, False, key, is_bottom))
 
-    def _nav_hover(self, frame, icon_lbl, text_lbl, enter, key=None):
-        if key and self.active_nav.get() == key:
+        return (card, inner, icon_lbl, text_lbl)
+
+    def _nav_item_hover(self, card, inner, icon_lbl, text_lbl, enter, key, is_bottom):
+        if not is_bottom and self.active_nav.get() == key:
             return
-        bg = C["card_hover"] if enter else C["sidebar"]
-        fg = C["fg"] if enter else C["fg2"]
-        for w in (frame, icon_lbl, text_lbl):
-            w.configure(bg=bg)
-        text_lbl.configure(fg=fg)
+        bg = D["sidebar_sel"] if enter else D["sidebar"]
+        fg = D["fg"] if enter else D["fg2"]
+        card.configure(bg=bg)
+        inner.configure(bg=bg)
+        icon_lbl.configure(bg=bg, fg=fg)
+        text_lbl.configure(bg=bg, fg=fg)
 
     def _switch_nav(self, key):
         prev = self.active_nav.get()
         self.active_nav.set(key)
 
         if prev in self.nav_btns:
-            frame, inner, icon_lbl, text_lbl = self.nav_btns[prev]
-            for w in (frame, inner, icon_lbl, text_lbl):
-                w.configure(bg=C["sidebar"])
-            text_lbl.configure(fg=C["fg2"])
+            card, inner, icon_lbl, text_lbl = self.nav_btns[prev]
+            card.configure(bg=D["sidebar"])
+            inner.configure(bg=D["sidebar"])
+            icon_lbl.configure(bg=D["sidebar"], fg=D["fg2"])
+            text_lbl.configure(bg=D["sidebar"], fg=D["fg2"])
 
-        frame, inner, icon_lbl, text_lbl = self.nav_btns[key]
-        for w in (frame, inner, icon_lbl, text_lbl):
-            w.configure(bg=C["sidebar_sel"])
-        text_lbl.configure(fg=C["accent"])
-        icon_lbl.configure(fg=C["accent"])
+        if key in self.nav_btns:
+            card, inner, icon_lbl, text_lbl = self.nav_btns[key]
+            card.configure(bg=D["sidebar_sel"])
+            inner.configure(bg=D["sidebar_sel"])
+            icon_lbl.configure(bg=D["sidebar_sel"], fg=D["accent_blue"])
+            text_lbl.configure(bg=D["sidebar_sel"], fg=D["accent_blue"])
 
         for k, p in self.pages.items():
             p.pack_forget()
-        self.pages[key].pack(fill="both", expand=True)
+        if key in self.pages:
+            self.pages[key].pack(fill="both", expand=True)
+
+    def _on_bottom_nav(self, key):
+        if key == "support":
+            messagebox.showinfo("Mox Support", "Mox Engine Documentation & Support\n\nWebsite: github.com/boody546/Mox-engine\nDocs: Readme & SKILL.md guide")
+        elif key == "notifications":
+            messagebox.showinfo("Notifications", "🔔 No new system notifications.\n\nAll engine binaries and dependencies are up to date.")
 
     # ═══════════════════════════════════════════════════════════════
-    # PAGE: Projects
+    # TOP BAR HEADER
+    # ═══════════════════════════════════════════════════════════════
+    def _build_topbar(self):
+        # Left/Center: Search Bar
+        search_box = tk.Frame(self.topbar, bg=D["card"], bd=1, relief="solid",
+                              highlightbackground=D["border_input"], highlightthickness=1)
+        search_box.pack(side="left", pady=10)
+
+        tk.Label(search_box, text=" 🔍 ", bg=D["card"], fg=D["fg3"],
+                 font=("Segoe UI", 10)).pack(side="left")
+
+        e_search = tk.Entry(search_box, textvariable=self.search_var, font=("Segoe UI", 9),
+                            bg=D["card"], fg=D["fg"], insertbackground=D["fg"],
+                            bd=0, relief="flat", width=34)
+        e_search.pack(side="left", padx=(0, 10), pady=6)
+        self.search_var.trace_add("write", lambda *_: self._render_project_list())
+
+        # Placeholder label effect
+        def _on_focus_in(e):
+            pass
+        e_search.bind("<FocusIn>", _on_focus_in)
+
+        # Right Action Cluster: [+ Open Project] [+ New Project] [User profile]
+        right_cluster = tk.Frame(self.topbar, bg=D["topbar"])
+        right_cluster.pack(side="right", pady=10)
+
+        self._mk_btn(right_cluster, "+ Open Project", self._open_existing_project,
+                     bg=D["card"], fg=D["fg"], padx=12, pady=6,
+                     font=("Segoe UI", 9, "bold")).pack(side="left", padx=4)
+
+        self._mk_btn(right_cluster, "+ New Project", self._open_new_project_dialog,
+                     bg=D["accent_blue"], fg="#ffffff", padx=14, pady=6,
+                     font=("Segoe UI", 9, "bold")).pack(side="left", padx=4)
+
+        # Profile / Notifications Icons
+        tk.Label(right_cluster, text="🔔", font=("Segoe UI", 11),
+                 bg=D["topbar"], fg=D["fg2"], cursor="hand2").pack(side="left", padx=(12, 6))
+        tk.Label(right_cluster, text="👤", font=("Segoe UI", 12),
+                 bg=D["topbar"], fg=D["fg"], cursor="hand2").pack(side="left", padx=4)
+
+    # ═══════════════════════════════════════════════════════════════
+    # BOTTOM ENGINE STATUS FOOTER BAR
+    # ═══════════════════════════════════════════════════════════════
+    def _build_footer(self):
+        # Left: Active Engine label
+        left_lbl = tk.Label(self.footer, text="Current Installed Engine: Mox Engine 1",
+                            font=("Segoe UI", 9), bg=D["footer"], fg=D["fg2"])
+        left_lbl.pack(side="left")
+
+        # Center: Bright Green Status Badge
+        self.lbl_status = tk.Label(self.footer, text="🟢 MOX ENGINE READY (Mox Engine 1)",
+                                   font=("Segoe UI", 9, "bold"),
+                                   bg=D["footer"], fg=D["success"])
+        self.lbl_status.pack(side="left", expand=True)
+
+        # Right: Highlighted Launch Button
+        self.btn_launch = self._mk_btn(self.footer, "🚀 Launch Mox Engine",
+                                       self.launch_engine,
+                                       bg=D["success"], fg="#062e1e",
+                                       font=("Segoe UI", 9, "bold"), padx=16, pady=5)
+        self.btn_launch.pack(side="right")
+
+    # ═══════════════════════════════════════════════════════════════
+    # PAGE: PROJECTS
     # ═══════════════════════════════════════════════════════════════
     def _build_page_projects(self):
         page = self.pages["projects"]
 
-        hdr = tk.Frame(page, bg=C["bg"], padx=28, pady=20)
+        # Title Header
+        hdr = tk.Frame(page, bg=D["bg"], padx=24, pady=16)
         hdr.pack(fill="x")
+        tk.Label(hdr, text="Projects", font=("Segoe UI", 18, "bold"),
+                 bg=D["bg"], fg=D["fg"]).pack(side="left")
 
-        tk.Label(hdr, text="Projects", font=("Segoe UI", 20, "bold"),
-                 bg=C["bg"], fg=C["fg"]).pack(side="left")
+        # Project Cards List Container
+        self.projects_scroll = tk.Canvas(page, bg=D["bg"], highlightthickness=0, bd=0)
+        sb = ttk.Scrollbar(page, style="Unity.Vertical.TScrollbar", orient="vertical",
+                           command=self.projects_scroll.yview)
+        self.projects_inner = tk.Frame(self.projects_scroll, bg=D["bg"], padx=24)
 
-        btn_row = tk.Frame(hdr, bg=C["bg"])
-        btn_row.pack(side="right")
+        self.projects_inner.bind("<Configure>", lambda e: self.projects_scroll.configure(
+            scrollregion=self.projects_scroll.bbox("all")))
+        self.projects_scroll.create_window((0, 0), window=self.projects_inner, anchor="nw")
+        self.projects_scroll.configure(yscrollcommand=sb.set)
 
-        self._mk_btn(btn_row, "+ New Project", self._open_new_project_dialog,
-                     bg=C["btn_primary"], fg="#fff", padx=14, pady=6).pack(side="left", padx=5)
-        self._mk_btn(btn_row, "📂 Open Project", self._open_existing_project,
-                     bg=C["card"], fg=C["fg"], padx=14, pady=6).pack(side="left")
+        self.projects_scroll.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
 
-        self.projects_list_frame = tk.Frame(page, bg=C["bg"], padx=24)
-        self.projects_list_frame.pack(fill="both", expand=True)
         self._render_project_list()
 
     def _render_project_list(self):
-        for w in self.projects_list_frame.winfo_children():
+        for w in self.projects_inner.winfo_children():
             w.destroy()
 
-        if not self.projects:
-            empty = tk.Frame(self.projects_list_frame, bg=C["bg"])
-            empty.pack(expand=True, fill="both", pady=80)
-            tk.Label(empty, text="🚀", font=("Segoe UI", 48),
-                     bg=C["bg"], fg=C["fg3"]).pack()
-            tk.Label(empty, text="No projects found",
-                     font=("Segoe UI", 16, "bold"), bg=C["bg"], fg=C["fg2"]).pack(pady=6)
-            tk.Label(empty, text="Click '+ New Project' to create your first Mox Engine game",
-                     font=("Segoe UI", 10), bg=C["bg"], fg=C["fg3"]).pack()
+        search = self.search_var.get().lower()
+        filtered = [p for p in self.projects if not search or search in p["name"].lower() or search in p.get("path","").lower()]
+
+        if not filtered:
+            empty = tk.Frame(self.projects_inner, bg=D["bg"], pady=60)
+            empty.pack(expand=True, fill="both")
+            tk.Label(empty, text="🎮", font=("Segoe UI", 42),
+                     bg=D["bg"], fg=D["fg3"]).pack()
+            tk.Label(empty, text="No Projects Found",
+                     font=("Segoe UI", 15, "bold"), bg=D["bg"], fg=D["fg2"]).pack(pady=4)
+            tk.Label(empty, text="Click '+ New Project' in top-right to create a project.",
+                     font=("Segoe UI", 9), bg=D["bg"], fg=D["fg3"]).pack()
             return
 
-        hdr = tk.Frame(self.projects_list_frame, bg=C["bg"], pady=4)
+        # Table Header Row
+        hdr = tk.Frame(self.projects_inner, bg=D["bg"], pady=6)
         hdr.pack(fill="x")
-        for txt, anchor in [("Project Name", "w"), ("Target Engine", "center"), ("Last Opened", "center"), ("Actions", "e")]:
-            tk.Label(hdr, text=txt, font=("Segoe UI", 9, "bold"),
-                     bg=C["bg"], fg=C["fg3"], anchor=anchor).pack(side="left", expand=True, fill="x")
 
-        tk.Frame(self.projects_list_frame, bg=C["border"], height=1).pack(fill="x", pady=(0, 6))
+        tk.Label(hdr, text="Project Name", font=("Segoe UI", 8, "bold"),
+                 bg=D["bg"], fg=D["fg3"], width=32, anchor="w").pack(side="left")
+        tk.Label(hdr, text="Target Engine", font=("Segoe UI", 8, "bold"),
+                 bg=D["bg"], fg=D["fg3"], width=16, anchor="center").pack(side="left")
+        tk.Label(hdr, text="Last Opened", font=("Segoe UI", 8, "bold"),
+                 bg=D["bg"], fg=D["fg3"], width=18, anchor="center").pack(side="left")
+        tk.Label(hdr, text="Actions", font=("Segoe UI", 8, "bold"),
+                 bg=D["bg"], fg=D["fg3"], anchor="e").pack(side="right", padx=20)
 
-        for proj in reversed(self.projects):
+        tk.Frame(self.projects_inner, bg=D["border"], height=1).pack(fill="x", pady=(0, 8))
+
+        for proj in reversed(filtered):
             self._render_project_card(proj)
 
     def _render_project_card(self, proj):
-        card = tk.Frame(self.projects_list_frame, bg=C["card"],
-                        pady=12, padx=16, cursor="hand2")
-        card.pack(fill="x", pady=3)
+        # Card container #18181c with border #27272a
+        card = tk.Frame(self.projects_inner, bg=D["card"], bd=1, relief="solid",
+                        highlightbackground=D["border_input"], highlightthickness=1,
+                        padx=12, pady=10, cursor="hand2")
+        card.pack(fill="x", pady=4)
 
-        left = tk.Frame(card, bg=C["card"])
-        left.pack(side="left", fill="x", expand=True)
+        # Left Column: Project Icon Tile + Name & Path
+        col_left = tk.Frame(card, bg=D["card"], width=300)
+        col_left.pack(side="left", anchor="w")
 
-        name_row = tk.Frame(left, bg=C["card"])
-        name_row.pack(anchor="w")
-        tk.Label(name_row, text=proj.get("icon", "🎮"),
-                 font=("Segoe UI", 14), bg=C["card"], fg=C["fg"]).pack(side="left")
-        tk.Label(name_row, text=f"  {proj['name']}",
-                 font=("Segoe UI", 11, "bold"), bg=C["card"], fg=C["fg"]).pack(side="left")
-        tk.Label(left, text=proj.get("path", ""),
-                 font=("Consolas", 8), bg=C["card"], fg=C["fg3"]).pack(anchor="w", padx=(2, 0))
+        # Icon tile (square tile)
+        tile = tk.Frame(col_left, bg="#222228", width=40, height=40, bd=0)
+        tile.pack(side="left", padx=(0, 10))
+        tile.pack_propagate(False)
+        tk.Label(tile, text=proj.get("icon", "🎮"), font=("Segoe UI", 16),
+                 bg="#222228", fg=D["fg"]).pack(expand=True)
 
-        tk.Label(card, text=f"{proj.get('engine_ver', self.active_version)}",
-                 font=("Segoe UI", 9, "bold"), bg="#1e2a45", fg=C["accent"],
-                 padx=8, pady=2).pack(side="left", padx=20)
+        name_box = tk.Frame(col_left, bg=D["card"])
+        name_box.pack(side="left", anchor="w")
+        tk.Label(name_box, text=proj["name"], font=("Segoe UI", 10, "bold"),
+                 bg=D["card"], fg=D["fg"]).pack(anchor="w")
 
-        tk.Label(card, text=proj.get("last_opened", "Never"),
-                 font=("Segoe UI", 9), bg=C["card"], fg=C["fg2"]).pack(side="left", padx=20)
+        path_text = proj.get("path", "")
+        if len(path_text) > 42:
+            path_text = path_text[:20] + "..." + path_text[-20:]
+        tk.Label(name_box, text=path_text, font=("Consolas", 8),
+                 bg=D["card"], fg=D["fg3"]).pack(anchor="w")
 
-        btn_row = tk.Frame(card, bg=C["card"])
-        btn_row.pack(side="right")
+        # Column 2: Target Engine Badge
+        col_eng = tk.Frame(card, bg=D["card"], width=160)
+        col_eng.pack(side="left", expand=True)
+        ver_tag = proj.get("engine_ver", self.active_version)
+        badge = tk.Label(col_eng, text=ver_tag, font=("Segoe UI", 8, "bold"),
+                         bg=D["badge_bg"], fg=D["badge_fg"], padx=10, pady=2)
+        badge.pack()
 
-        self._mk_btn(btn_row, "▶ Launch", lambda p=proj: self._launch_project(p),
-                     bg=C["btn_success"], fg="#0f2318", padx=10, pady=4,
-                     font=("Segoe UI", 9, "bold")).pack(side="left", padx=3)
-        self._mk_btn(btn_row, "VS Code", lambda p=proj: self._open_vscode(p),
-                     bg=C["card_hover"], fg=C["fg"], padx=10, pady=4,
-                     font=("Segoe UI", 9)).pack(side="left", padx=3)
-        self._mk_btn(btn_row, "✕", lambda p=proj: self._remove_project(p),
-                     bg=C["card"], fg=C["fg3"], padx=8, pady=4,
-                     font=("Segoe UI", 9)).pack(side="left")
+        # Column 3: Last Opened
+        col_opened = tk.Frame(card, bg=D["card"], width=160)
+        col_opened.pack(side="left", expand=True)
+        tk.Label(col_opened, text=proj.get("last_opened", "Never"),
+                 font=("Segoe UI", 8), bg=D["card"], fg=D["fg2"]).pack()
 
-        for w in card.winfo_children() + [card]:
-            w.bind("<Enter>", lambda e, c=card: c.configure(bg=C["card_hover"]))
-            w.bind("<Leave>", lambda e, c=card: c.configure(bg=C["card"]))
+        # Column 4: Actions (📝 Editor | ▶ Run | ...)
+        col_act = tk.Frame(card, bg=D["card"])
+        col_act.pack(side="right")
 
+        self._mk_btn(col_act, "📝 Editor", lambda p=proj: self._open_editor(p),
+                     bg=D["card_hover"], fg=D["fg"], padx=10, pady=4,
+                     font=("Segoe UI", 8, "bold")).pack(side="left", padx=3)
+
+        self._mk_btn(col_act, "▶ Run", lambda p=proj: self._launch_project(p),
+                     bg=D["success"], fg="#062e1e", padx=12, pady=4,
+                     font=("Segoe UI", 8, "bold")).pack(side="left", padx=3)
+
+        opts_btn = mk_btn(col_act, "⚙️", lambda p=proj, b=card: self._show_project_ctx_menu(p, b),
+                          bg=D["card"], fg=D["fg2"], padx=6, pady=4, font=("Segoe UI", 9))
+        opts_btn.pack(side="left")
+
+        # Card hover effect
+        def _on_enter(e):
+            card.configure(bg=D["card_hover"])
+            for w in (col_left, name_box, col_eng, col_opened, col_act):
+                try: w.configure(bg=D["card_hover"])
+                except Exception: pass
+
+        def _on_leave(e):
+            card.configure(bg=D["card"])
+            for w in (col_left, name_box, col_eng, col_opened, col_act):
+                try: w.configure(bg=D["card"])
+                except Exception: pass
+
+        card.bind("<Enter>", _on_enter)
+        card.bind("<Leave>", _on_leave)
+
+    def _show_project_ctx_menu(self, proj, widget):
+        m = tk.Menu(self, tearoff=0, bg=D["card"], fg=D["fg"],
+                    activebackground=D["accent_blue"], font=("Segoe UI", 9))
+        m.add_command(label="📝 Open 2D Editor",   command=lambda: self._open_editor(proj))
+        m.add_command(label="▶ Run Game Binary",    command=lambda: self._launch_project(proj))
+        m.add_separator()
+        m.add_command(label="📂 Open in Explorer", command=lambda: os.startfile(proj["path"]))
+        m.add_command(label="💻 Open in VS Code",   command=lambda: self._open_vscode(proj))
+        m.add_separator()
+        m.add_command(label="🗑️ Remove from List", command=lambda: self._remove_project(proj))
+        m.post(self.winfo_pointerx(), self.winfo_pointery())
+
+    # ═══════════════════════════════════════════════════════════════
+    # NEW PROJECT DIALOG
+    # ═══════════════════════════════════════════════════════════════
     def _open_new_project_dialog(self):
         win = tk.Toplevel(self)
-        win.title("New Mox Engine Project")
-        win.geometry("600x480")
-        win.configure(bg=C["bg"])
+        win.title("Create New Project")
+        win.geometry("580x460")
+        win.configure(bg=D["bg"])
         win.resizable(False, False)
         win.grab_set()
 
-        tk.Label(win, text="Create New Project",
-                 font=("Segoe UI", 15, "bold"), bg=C["bg"], fg=C["fg"]).pack(pady=(20, 4), padx=24, anchor="w")
-        tk.Label(win, text="Select a template and destination folder.",
-                 font=("Segoe UI", 9), bg=C["bg"], fg=C["fg2"]).pack(padx=24, anchor="w", pady=(0, 16))
+        tk.Label(win, text="Create New Project", font=("Segoe UI", 14, "bold"),
+                 bg=D["bg"], fg=D["fg"]).pack(pady=(18, 2), padx=20, anchor="w")
+        tk.Label(win, text="Select template and project folder.",
+                 font=("Segoe UI", 9), bg=D["bg"], fg=D["fg2"]).pack(padx=20, anchor="w", pady=(0, 12))
 
-        tpl_frame = tk.Frame(win, bg=C["bg"], padx=20)
+        tpl_frame = tk.Frame(win, bg=D["bg"], padx=20)
         tpl_frame.pack(fill="x")
         for tpl in TEMPLATES:
-            rb_card = tk.Frame(tpl_frame, bg=C["card"], padx=12, pady=8, cursor="hand2")
-            rb_card.pack(fill="x", pady=3)
-            tk.Radiobutton(rb_card, variable=self.sel_template, value=tpl["id"],
-                           bg=C["card"], activebackground=C["card"],
-                           selectcolor=C["accent"]).pack(side="left")
-            tk.Label(rb_card, text=f"{tpl['icon']}  {tpl['name']}",
-                     font=("Segoe UI", 10, "bold"), bg=C["card"], fg=C["fg"]).pack(side="left")
-            tk.Label(rb_card, text=tpl["desc"],
-                     font=("Segoe UI", 8), bg=C["card"], fg=C["fg2"]).pack(side="left", padx=8)
+            card = tk.Frame(tpl_frame, bg=D["card"], padx=10, pady=6, bd=1, relief="solid",
+                            highlightbackground=D["border"], highlightthickness=1)
+            card.pack(fill="x", pady=2)
+            tk.Radiobutton(card, variable=self.sel_template, value=tpl["id"],
+                           bg=D["card"], activebackground=D["card"], selectcolor=D["accent_blue"]).pack(side="left")
+            tk.Label(card, text=f"{tpl['icon']}  {tpl['name']}", font=("Segoe UI", 9, "bold"),
+                     bg=D["card"], fg=D["fg"]).pack(side="left")
+            tk.Label(card, text=tpl["desc"], font=("Segoe UI", 8),
+                     bg=D["card"], fg=D["fg2"]).pack(side="left", padx=8)
 
-        form = tk.Frame(win, bg=C["bg"], padx=24, pady=12)
+        form = tk.Frame(win, bg=D["bg"], padx=20, pady=10)
         form.pack(fill="x")
-        tk.Label(form, text="Project Name", font=("Segoe UI", 10, "bold"),
-                 bg=C["bg"], fg=C["fg2"]).pack(anchor="w")
-        name_var = tk.StringVar(value="MyMoxGame")
-        name_entry = tk.Entry(form, textvariable=name_var, font=("Segoe UI", 11),
-                              bg=C["card"], fg=C["fg"], insertbackground=C["fg"],
-                              relief="flat", bd=8)
-        name_entry.pack(fill="x", pady=(4, 10))
 
-        tk.Label(form, text="Location", font=("Segoe UI", 10, "bold"),
-                 bg=C["bg"], fg=C["fg2"]).pack(anchor="w")
+        tk.Label(form, text="Project Name", font=("Segoe UI", 9, "bold"),
+                 bg=D["bg"], fg=D["fg2"]).pack(anchor="w")
+        name_var = tk.StringVar(value="MyNovaGame")
+        e_name = tk.Entry(form, textvariable=name_var, font=("Segoe UI", 10),
+                          bg=D["input_bg"], fg=D["fg"], insertbackground=D["fg"],
+                          bd=1, relief="solid", highlightthickness=0)
+        e_name.pack(fill="x", pady=(3, 8))
+
+        tk.Label(form, text="Location", font=("Segoe UI", 9, "bold"),
+                 bg=D["bg"], fg=D["fg2"]).pack(anchor="w")
         loc_var = tk.StringVar(value=PROJECTS_DIR)
-        loc_row = tk.Frame(form, bg=C["bg"])
-        loc_row.pack(fill="x", pady=(4, 0))
-        tk.Entry(loc_row, textvariable=loc_var, font=("Segoe UI", 10),
-                 bg=C["card"], fg=C["fg"], insertbackground=C["fg"],
-                 relief="flat", bd=6).pack(side="left", fill="x", expand=True)
-        self._mk_btn(loc_row, "Browse",
+        loc_row = tk.Frame(form, bg=D["bg"])
+        loc_row.pack(fill="x", pady=(3, 0))
+        tk.Entry(loc_row, textvariable=loc_var, font=("Segoe UI", 9),
+                 bg=D["input_bg"], fg=D["fg"], insertbackground=D["fg"],
+                 bd=1, relief="solid", highlightthickness=0).pack(side="left", fill="x", expand=True)
+        self._mk_btn(loc_row, "Browse...",
                      lambda: loc_var.set(filedialog.askdirectory(initialdir=PROJECTS_DIR) or loc_var.get()),
-                     bg=C["card_hover"], fg=C["fg"], padx=10, pady=4).pack(side="left", padx=(4, 0))
+                     bg=D["card"], fg=D["fg"], padx=8, pady=3).pack(side="left", padx=(4, 0))
 
-        bot = tk.Frame(win, bg=C["bg"], padx=24, pady=16)
+        bot = tk.Frame(win, bg=D["bg"], padx=20, pady=12)
         bot.pack(fill="x", side="bottom")
-        self._mk_btn(bot, "Cancel", win.destroy,
-                     bg=C["card"], fg=C["fg"], padx=14, pady=6).pack(side="right", padx=6)
-        self._mk_btn(bot, "Create Project",
-                     lambda: self._create_project(name_var.get(), loc_var.get(), win),
-                     bg=C["btn_primary"], fg="#fff", padx=14, pady=6,
-                     font=("Segoe UI", 10, "bold")).pack(side="right")
+        self._mk_btn(bot, "Cancel", win.destroy, bg=D["card"], fg=D["fg"], padx=12, pady=5).pack(side="right", padx=4)
+        self._mk_btn(bot, "+ Create Project", lambda: self._create_project(name_var.get(), loc_var.get(), win),
+                     bg=D["accent_blue"], fg="#fff", padx=14, pady=5, font=("Segoe UI", 9, "bold")).pack(side="right")
 
     def _create_project(self, name, location, win):
         name = name.strip()
         if not name:
             messagebox.showwarning("Invalid Name", "Project name cannot be empty.", parent=win)
             return
-
         proj_path = os.path.join(location, name)
         if os.path.exists(proj_path):
             messagebox.showwarning("Exists", f"Directory already exists:\n{proj_path}", parent=win)
@@ -644,8 +702,7 @@ class MoxHubApp(tk.Tk):
 
     def _open_existing_project(self):
         path = filedialog.askdirectory(initialdir=PROJECT_ROOT, title="Select Mox Engine Project Folder")
-        if not path:
-            return
+        if not path: return
         name = os.path.basename(path)
         if any(p["path"] == path for p in self.projects):
             messagebox.showinfo("Already Added", f"'{name}' is already in your project list.")
@@ -663,17 +720,37 @@ class MoxHubApp(tk.Tk):
         self._save_data()
         self._render_project_list()
 
+    # ═══════════════════════════════════════════════════════════════
+    # EXECUTION FLOW VERIFICATION (Editor & Run Game)
+    # ═══════════════════════════════════════════════════════════════
+    def _open_editor(self, proj):
+        """Flow 1: Launches editor.py with --project argument."""
+        proj_path = proj.get("path", "")
+        editor_script = os.path.join(HUB_DIR, "editor.py")
+        if not os.path.exists(editor_script):
+            messagebox.showerror("Editor Error", f"Editor script not found:\n{editor_script}")
+            return
+        try:
+            subprocess.Popen([sys.executable, editor_script, "--project", proj_path])
+            proj["last_opened"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self._save_data()
+            self._render_project_list()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to launch 2D Editor:\n{e}")
+
     def _launch_project(self, proj):
+        """Flow 2: Executes MoxEngine.exe with --project argument."""
         exe_path = self._get_active_exe()
         if not exe_path or not os.path.exists(exe_path):
             messagebox.showwarning("Engine Required",
                 f"No binary executable found for {self.active_version}.\n\n"
-                "Please go to the 'Installs' tab and click 'Download & Install'.")
+                "Please go to 'Installs' tab to package or download MoxEngine.exe.")
             return
 
         try:
             work_dir = os.path.dirname(exe_path)
-            subprocess.Popen([exe_path], cwd=work_dir)
+            norm_proj_path = os.path.normpath(proj.get("path", ""))
+            subprocess.Popen([exe_path, "--project", norm_proj_path], cwd=work_dir)
             proj["last_opened"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             self._save_data()
             self._render_project_list()
@@ -682,622 +759,232 @@ class MoxHubApp(tk.Tk):
 
     def _open_vscode(self, proj):
         path = proj.get("path", "")
-        try:
-            subprocess.Popen(["code", path], shell=True)
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not open VS Code:\n{e}")
+        try: subprocess.Popen(["code", path], shell=True)
+        except Exception as e: messagebox.showerror("Error", str(e))
 
     def _remove_project(self, proj):
-        if messagebox.askyesno("Remove", f"Remove '{proj['name']}' from list?\n(Project files on disk will NOT be deleted)"):
+        if messagebox.askyesno("Remove", f"Remove '{proj['name']}' from project list?"):
             self.projects = [p for p in self.projects if p["path"] != proj["path"]]
             self._save_data()
             self._render_project_list()
 
     # ═══════════════════════════════════════════════════════════════
-    # PAGE: Installs / Mox Engine Versions
+    # PAGE: INSTALLS
     # ═══════════════════════════════════════════════════════════════
     def _build_page_installs(self):
         page = self.pages["installs"]
 
-        hdr = tk.Frame(page, bg=C["bg"], padx=28, pady=20)
+        hdr = tk.Frame(page, bg=D["bg"], padx=24, pady=16)
         hdr.pack(fill="x")
-        tk.Label(hdr, text="Mox Engine Installs", font=("Segoe UI", 20, "bold"),
-                 bg=C["bg"], fg=C["fg"]).pack(side="left")
+        tk.Label(hdr, text="Mox Engine Installs", font=("Segoe UI", 18, "bold"),
+                 bg=D["bg"], fg=D["fg"]).pack(side="left")
 
-        btn_row = tk.Frame(hdr, bg=C["bg"])
+        btn_row = tk.Frame(hdr, bg=D["bg"])
         btn_row.pack(side="right")
-        self._mk_btn(btn_row, "↻ Refresh", self._refresh_versions,
-                     bg=C["card"], fg=C["fg2"], padx=10, pady=6).pack(side="left", padx=3)
-        self._mk_btn(btn_row, "📂 Install from Local ZIP / Folder", self._install_local_dialog,
-                     bg=C["card_hover"], fg=C["fg"], padx=12, pady=6,
-                     font=("Segoe UI", 9)).pack(side="left", padx=3)
         self._mk_btn(btn_row, "📦 Package Local Build", self._bundle_local_build_dialog,
-                     bg=C["btn_primary"], fg="#fff", padx=12, pady=6,
+                     bg=D["accent_blue"], fg="#fff", padx=12, pady=5,
                      font=("Segoe UI", 9, "bold")).pack(side="left", padx=3)
+        self._mk_btn(btn_row, "📂 Install from ZIP", self._install_local_dialog,
+                     bg=D["card"], fg=D["fg"], padx=10, pady=5).pack(side="left")
 
-        sub = tk.Frame(page, bg=C["bg"], padx=28)
-        sub.pack(fill="x", pady=(0, 10))
-        tk.Label(sub, text="Manage official Mox Engine pre-compiled binaries and standalone releases.",
-                 font=("Segoe UI", 9), bg=C["bg"], fg=C["fg2"]).pack(anchor="w")
-
-        self.ver_list_frame = tk.Frame(page, bg=C["bg"], padx=28)
+        self.ver_list_frame = tk.Frame(page, bg=D["bg"], padx=24)
         self.ver_list_frame.pack(fill="both", expand=True)
         self._render_version_list()
-
-    def _refresh_versions(self):
-        self._scan_installed_versions()
-        self._save_data()
-        self._render_version_list()
-        self._update_status()
 
     def _render_version_list(self):
         for w in self.ver_list_frame.winfo_children():
             w.destroy()
 
         for ver_info in self.engine_versions:
-            self._render_version_card(ver_info)
+            is_installed = ver_info.get("status") == "installed"
+            card = tk.Frame(self.ver_list_frame, bg=D["card"], bd=1, relief="solid",
+                            highlightbackground=D["border"], highlightthickness=1, padx=16, pady=12)
+            card.pack(fill="x", pady=4)
 
-    def _render_version_card(self, ver_info):
-        is_installed  = ver_info.get("status") == "installed"
-        is_active     = ver_info["ver"] == self.active_version
-        is_loading    = ver_info.get("status") == "downloading"
-        card = tk.Frame(self.ver_list_frame, bg=C["card"], padx=18, pady=14)
-        card.pack(fill="x", pady=4)
+            left = tk.Frame(card, bg=D["card"])
+            left.pack(side="left", fill="x", expand=True)
+            tk.Label(left, text=ver_info["label"], font=("Segoe UI", 11, "bold"),
+                     bg=D["card"], fg=D["fg"]).pack(anchor="w")
+            tk.Label(left, text=ver_info.get("desc",""), font=("Segoe UI", 8),
+                     bg=D["card"], fg=D["fg2"]).pack(anchor="w")
 
-        left = tk.Frame(card, bg=C["card"])
-        left.pack(side="left", expand=True, fill="x")
+            status_txt, status_col = ("🟢 Installed", D["success"]) if is_installed else ("🟡 Not Installed", D["warning"])
+            tk.Label(card, text=status_txt, font=("Segoe UI", 9, "bold"),
+                     bg=D["card"], fg=status_col).pack(side="left", padx=20)
 
-        name_row = tk.Frame(left, bg=C["card"])
-        name_row.pack(anchor="w")
-        tk.Label(name_row, text=ver_info["label"], font=("Segoe UI", 11, "bold"),
-                 bg=C["card"], fg=C["fg"]).pack(side="left")
-        if is_active:
-            tk.Label(name_row, text="  DEFAULT ACTIVE", font=("Segoe UI", 8, "bold"),
-                     bg="#1c3a1c", fg=C["success"], padx=8, pady=1).pack(side="left", padx=8)
+            btn_row = tk.Frame(card, bg=D["card"])
+            btn_row.pack(side="right")
 
-        desc_lbl = tk.Label(left, text=ver_info.get("desc", f"Mox Engine release {ver_info['ver']}"),
-                            font=("Segoe UI", 8), bg=C["card"], fg=C["fg2"])
-        desc_lbl.pack(anchor="w", pady=(2, 0))
-
-        if is_loading:
-            prog_frame = tk.Frame(left, bg=C["card"])
-            prog_frame.pack(fill="x", pady=(8, 0))
-            pbar = ttk.Progressbar(prog_frame, mode="determinate", length=340)
-            pbar.pack(side="left")
-            speed_lbl = tk.Label(prog_frame, text="Starting download...",
-                                 font=("Consolas", 8), bg=C["card"], fg=C["accent"])
-            speed_lbl.pack(side="left", padx=10)
-            ver_info["_pbar"]      = pbar
-            ver_info["_speed_lbl"] = speed_lbl
-
-        if is_installed:
-            status_txt, status_color = "● Installed", C["success"]
-        else:
-            status_txt, status_color = "◎ Not Installed", C["warning"]
-
-        tk.Label(card, text=status_txt, font=("Segoe UI", 9, "bold"),
-                 bg=C["card"], fg=status_color).pack(side="left", padx=24)
-
-        btn_row = tk.Frame(card, bg=C["card"])
-        btn_row.pack(side="right")
-
-        if is_installed:
-            self._mk_btn(btn_row, "▶ Test Run",
-                         lambda v=ver_info: self._test_run_version(v),
-                         bg=C["card_hover"], fg=C["fg"], padx=10, pady=5,
-                         font=("Segoe UI", 9)).pack(side="left", padx=4)
-            self._mk_btn(btn_row, "📦 Re-Package Build",
-                         lambda: self._bundle_local_build_dialog(),
-                         bg=C["card"], fg=C["accent"], padx=10, pady=5,
-                         font=("Segoe UI", 9)).pack(side="left", padx=4)
-        else:
-            self._mk_btn(btn_row, "⬇ Download & Install Mox Engine",
-                         lambda: self._install_remote_engine(),
-                         bg=C["btn_success"], fg="#0f2318", padx=16, pady=7,
-                         font=("Segoe UI", 10, "bold")).pack(side="left", padx=4)
-            self._mk_btn(btn_row, "📦 Package Local Build",
-                         lambda: self._bundle_local_build_dialog(),
-                         bg=C["card_hover"], fg=C["fg"], padx=10, pady=5,
-                         font=("Segoe UI", 9)).pack(side="left", padx=4)
-            self._mk_btn(btn_row, "📂 Install from Local ZIP",
-                         lambda: self._install_local_dialog(),
-                         bg=C["card"], fg=C["fg3"], padx=10, pady=5,
-                         font=("Segoe UI", 9)).pack(side="left")
-
-    def _set_default_version(self, ver):
-        self.active_version = ver
-        self.lbl_version.configure(text=f"{ver}")
-        self._save_data()
-        self._render_version_list()
-        self._update_status()
-
-    # ─── (Online download removed — Mox Engine1 uses local packaging only) ──
+            if is_installed:
+                self._mk_btn(btn_row, "▶ Test Run", lambda v=ver_info: self._test_run_version(v),
+                             bg=D["card_hover"], fg=D["fg"], padx=10, pady=4).pack(side="left", padx=3)
+                self._mk_btn(btn_row, "📦 Re-Package", lambda: self._bundle_local_build_dialog(),
+                             bg=D["card"], fg=D["badge_fg"], padx=10, pady=4).pack(side="left", padx=3)
+                self._mk_btn(btn_row, "🗑️ Uninstall", lambda: self._uninstall_engine(),
+                             bg=D["card"], fg=D["danger"], padx=10, pady=4).pack(side="left")
+            else:
+                self._mk_btn(btn_row, "⬇ Download Release", lambda: self._install_remote_engine(),
+                             bg=D["success"], fg="#062e1e", padx=14, pady=5, font=("Segoe UI", 9, "bold")).pack(side="left", padx=3)
 
     def _test_run_version(self, ver_info):
         path = ver_info.get("path")
         exe  = self._find_exe_in_dir(path) if (path and os.path.isdir(path)) else path
         if not exe or not os.path.exists(exe):
             exe = os.path.join(VERSIONS_DIR, "Mox Engine1", "MoxEngine.exe")
-
         if not exe or not os.path.exists(exe):
-            messagebox.showwarning("Executable Not Found", f"No MoxEngine.exe found in:\n{path}")
+            messagebox.showwarning("Not Found", f"No MoxEngine.exe found in:\n{path}")
             return
+        try: subprocess.Popen([exe], cwd=os.path.dirname(exe))
+        except Exception as e: messagebox.showerror("Error", str(e))
 
+    def _uninstall_engine(self):
+        if not messagebox.askyesno("Uninstall Engine", "Delete installed Mox Engine binaries?"): return
         try:
-            subprocess.Popen([exe], cwd=os.path.dirname(exe))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to launch:\n{e}")
-
-    def _remove_version(self, ver_info):
-        if not messagebox.askyesno("Uninstall Version",
-                                   f"Uninstall {ver_info['label']}?\n\nDirectory will be deleted."):
-            return
-
-        path = ver_info.get("path", "")
-        if path and os.path.exists(path):
-            if os.path.isfile(path):
-                parent = os.path.dirname(path)
-                if parent.startswith(VERSIONS_DIR):
-                    shutil.rmtree(parent, ignore_errors=True)
-            else:
-                shutil.rmtree(path, ignore_errors=True)
-
-        ver_info["status"] = "available"
-        ver_info["path"]   = ""
+            subprocess.run(["taskkill", "/F", "/IM", "MoxEngine.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception: pass
+        target_dir = os.path.join(VERSIONS_DIR, "Mox Engine1")
+        if os.path.exists(target_dir): shutil.rmtree(target_dir, ignore_errors=True)
+        self._scan_installed_versions()
         self._save_data()
         self._render_version_list()
         self._update_status()
 
-    # ─── (Error/fallback popup removed — use local packaging only) ──
-
-    # ─── Local File & Folder Installation ─────────────────────────
-    def _install_local_dialog(self, default_ver="Mox Engine1"):
-        win = tk.Toplevel(self)
-        win.title("Install Engine from Local File / ZIP")
-        win.geometry("580x320")
-        win.configure(bg=C["bg"])
-        win.resizable(False, False)
-        win.grab_set()
-
-        tk.Label(win, text="Install Mox Engine from Local Package",
-                 font=("Segoe UI", 14, "bold"), bg=C["bg"], fg=C["fg"]).pack(
-                 pady=(18, 4), padx=24, anchor="w")
-        tk.Label(win, text="Select a local .zip archive or existing engine directory.",
-                 font=("Segoe UI", 9), bg=C["bg"], fg=C["fg2"]).pack(padx=24, anchor="w")
-
-        form = tk.Frame(win, bg=C["bg"], padx=24, pady=12)
-        form.pack(fill="x")
-
-        tk.Label(form, text="Version Name (e.g. Mox Engine1)",
-                 font=("Segoe UI", 9, "bold"), bg=C["bg"], fg=C["fg2"]).pack(anchor="w")
-        ver_var = tk.StringVar(value=default_ver)
-        tk.Entry(form, textvariable=ver_var, font=("Segoe UI", 10),
-                 bg=C["card"], fg=C["fg"], insertbackground=C["fg"],
-                 relief="flat", bd=6).pack(fill="x", pady=(4, 10))
-
-        tk.Label(form, text="Local Source Path (.zip file or folder)",
-                 font=("Segoe UI", 9, "bold"), bg=C["bg"], fg=C["fg2"]).pack(anchor="w")
-        path_var = tk.StringVar()
-        p_row = tk.Frame(form, bg=C["bg"])
-        p_row.pack(fill="x", pady=(4, 0))
-        tk.Entry(p_row, textvariable=path_var, font=("Consolas", 9),
-                 bg=C["card"], fg=C["fg"], insertbackground=C["fg"],
-                 relief="flat", bd=6).pack(side="left", fill="x", expand=True)
-
-        def _pick_file():
-            f = filedialog.askopenfilename(filetypes=[("ZIP / Archive", "*.zip;*.tar.gz;*.rar"), ("All files", "*.*")])
-            if f:
-                path_var.set(f)
-
-        def _pick_dir():
-            d = filedialog.askdirectory(initialdir=PROJECT_ROOT, title="Select Local Engine Folder")
-            if d:
-                path_var.set(d)
-
-        self._mk_btn(p_row, "ZIP...", _pick_file, bg=C["card_hover"], fg=C["fg"], padx=8, pady=4).pack(side="left", padx=3)
-        self._mk_btn(p_row, "Folder...", _pick_dir, bg=C["card_hover"], fg=C["fg"], padx=8, pady=4).pack(side="left")
-
-        def _do_install():
-            ver = ver_var.get().strip()
-            src = path_var.get().strip()
-            if not ver or not src:
-                messagebox.showwarning("Missing Information", "Please enter version name and select a source path.", parent=win)
-                return
-            if not os.path.exists(src):
-                messagebox.showerror("Error", f"Path does not exist:\n{src}", parent=win)
-                return
-
-            target_dir = os.path.join(VERSIONS_DIR, ver)
-            os.makedirs(target_dir, exist_ok=True)
-
-            try:
-                if os.path.isfile(src) and zipfile.is_zipfile(src):
-                    with zipfile.ZipFile(src, "r") as zf:
-                        zf.extractall(target_dir)
-                elif os.path.isdir(src):
-                    for item in os.listdir(src):
-                        s = os.path.join(src, item)
-                        d = os.path.join(target_dir, item)
-                        if os.path.isdir(s):
-                            shutil.copytree(s, d, dirs_exist_ok=True)
-                        else:
-                            shutil.copy2(s, d)
-
-                exe_found = self._find_exe_in_dir(target_dir)
-
-                existing = next((v for v in self.engine_versions if v["ver"] == ver), None)
-                if existing:
-                    existing["status"] = "installed"
-                    existing["path"]   = exe_found or target_dir
-                else:
-                    self.engine_versions.append({
-                        "ver":    ver,
-                        "label":  f"{ver} (Local Install)",
-                        "status": "installed",
-                        "date":   datetime.now().strftime("%Y-%m-%d"),
-                        "url":    None,
-                        "desc":   f"Installed from local package: {os.path.basename(src)}",
-                        "path":   exe_found or target_dir,
-                    })
-
-                self.active_version = ver
-                self._save_data()
-                win.destroy()
-                self._render_version_list()
-                self._update_status()
-                messagebox.showinfo("Success", f"{ver} installed successfully from local package!")
-            except Exception as e:
-                messagebox.showerror("Installation Error", f"Could not install local package:\n{e}", parent=win)
-
-        bot = tk.Frame(win, bg=C["bg"], padx=24, pady=12)
-        bot.pack(fill="x", side="bottom")
-        self._mk_btn(bot, "Cancel", win.destroy, bg=C["card"], fg=C["fg"], padx=12, pady=6).pack(side="right", padx=6)
-        self._mk_btn(bot, "✓ Install Package", _do_install,
-                     bg=C["btn_primary"], fg="#fff", padx=14, pady=6,
-                     font=("Segoe UI", 10, "bold")).pack(side="right")
-
-    # ─── Local Build Bundling ──────────────────────────────────────
     def _bundle_local_build_dialog(self):
-        """Directly copy local engine binary into Engine/versions/Mox Engine1/ — no popup, single click."""
-        ver        = "Mox Engine1"
-        target_dir = os.path.join(VERSIONS_DIR, ver)
+        ver = "Mox Engine 1"
+        target_dir = os.path.join(VERSIONS_DIR, "Mox Engine1")
         os.makedirs(target_dir, exist_ok=True)
         target_exe = os.path.join(target_dir, "MoxEngine.exe")
-
         local_build = os.path.join(ENGINE_DIR, "build")
-        sources = [
-            os.path.join(local_build, "MoxEngine.exe"),
-            os.path.join(local_build, "Nova2D.exe"),
-            os.path.join(ENGINE_DIR, "MoxEngine.exe"),
-            os.path.join(ENGINE_DIR, "Nova2D.exe"),
-        ]
-        found_src = next((s for s in sources if os.path.exists(s)), None)
 
+        if os.path.exists(local_build):
+            for item in os.listdir(local_build):
+                s = os.path.join(local_build, item)
+                d = os.path.join(target_dir, item)
+                if os.path.isdir(s): shutil.copytree(s, d, dirs_exist_ok=True)
+                else: shutil.copy2(s, d)
+
+        self._scan_installed_versions()
+        self._save_data()
+        self._render_version_list()
+        self._update_status()
+        messagebox.showinfo("Packaged", "Local build packaged into Mox Engine 1 directory!")
+
+    def _install_local_dialog(self):
+        f = filedialog.askopenfilename(filetypes=[("Archives", "*.zip"), ("All Files", "*.*")])
+        if not f: return
+        target_dir = os.path.join(VERSIONS_DIR, "Mox Engine1")
+        os.makedirs(target_dir, exist_ok=True)
         try:
-            # Copy everything from Engine/build/ into the version folder
-            if os.path.exists(local_build):
-                for item in os.listdir(local_build):
-                    s = os.path.join(local_build, item)
-                    d = os.path.join(target_dir, item)
-                    if os.path.isdir(s):
-                        shutil.copytree(s, d, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(s, d)
-
-            # Always force-copy the main executable
-            if found_src:
-                shutil.copy2(found_src, target_exe)
-
-            final_exe = target_exe if os.path.exists(target_exe) else self._find_exe_in_dir(target_dir)
-
-            # Update the single Mox Engine1 entry immediately
-            entry = next((x for x in self.engine_versions if x["ver"] == ver), None)
-            if entry:
-                entry["status"] = "installed" if final_exe else "not_installed"
-                entry["path"]   = final_exe or target_dir
-
-            self.active_version = ver
+            with zipfile.ZipFile(f, "r") as zf: zf.extractall(target_dir)
+            self._scan_installed_versions()
             self._save_data()
             self._render_version_list()
             self._update_status()
-
-            if final_exe and os.path.exists(final_exe):
-                messagebox.showinfo(
-                    "✅ Mox Engine1 Ready",
-                    f"Engine packaged successfully!\n\nBinary: {final_exe}\n\nTop bar now shows: ● MOX ENGINE READY"
-                )
-            else:
-                messagebox.showwarning(
-                    "No Binary Found",
-                    "No MoxEngine.exe or Nova2D.exe was found in Engine/build/.\n\n"
-                    "Please build the engine first, or use 'Install from Local ZIP / Folder' to point to an existing binary."
-                )
+            messagebox.showinfo("Success", "Engine installed from local ZIP!")
         except Exception as e:
-            messagebox.showerror("Bundle Error", f"Could not package local build:\n{e}")
+            messagebox.showerror("Error", str(e))
 
-    # ─── (URL download dialog removed — Mox Engine1 is locally packaged only) ──
-
-    # ─── Remote Release Downloader & Installer ──────────────────────
     def _install_remote_engine(self):
-        """Download pre-compiled Mox Engine zip directly from GitHub Release URL and extract."""
         target_dir = os.path.join(VERSIONS_DIR, "Mox Engine1")
         os.makedirs(target_dir, exist_ok=True)
-
-        # ─── Progress Dialog ─────────────────────────────────────
-        win = tk.Toplevel(self)
-        win.title("Downloading Mox Engine1...")
-        win.geometry("500x220")
-        win.configure(bg=C["bg"])
-        win.resizable(False, False)
-        win.grab_set()
-
-        tk.Label(win, text="⬇  Downloading Mox Engine1 Release",
-                 font=("Segoe UI", 13, "bold"), bg=C["bg"], fg=C["fg"]).pack(
-                 pady=(20, 4), padx=24, anchor="w")
-
-        status_var = tk.StringVar(value="Connecting to GitHub Release...")
-        tk.Label(win, textvariable=status_var,
-                 font=("Segoe UI", 9), bg=C["bg"], fg=C["fg2"]).pack(padx=24, anchor="w")
-
-        pbar = ttk.Progressbar(win, mode="determinate", length=440)
-        pbar.pack(padx=28, pady=(12, 4))
-
-        detail_var = tk.StringVar(value="0 MB downloaded")
-        tk.Label(win, textvariable=detail_var,
-                 font=("Consolas", 8), bg=C["bg"], fg=C["accent"]).pack(padx=28, anchor="w")
+        win = tk.Toplevel(self); win.title("Downloading Mox Engine..."); win.geometry("460x180"); win.configure(bg=D["bg"]); win.grab_set()
+        tk.Label(win, text="⬇ Downloading Mox Engine...", font=("Segoe UI", 12, "bold"), bg=D["bg"], fg=D["fg"]).pack(pady=16)
+        pbar = ttk.Progressbar(win, mode="indeterminate", length=360); pbar.pack(pady=10); pbar.start(10)
 
         def _run():
-            tmp_zip = os.path.join(tempfile.gettempdir(), "mox_engine_release.zip")
+            tmp_zip = os.path.join(tempfile.gettempdir(), "mox_engine.zip")
             try:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MoxHUB/3.0",
-                    "Accept": "*/*"
-                }
-                req = urllib.request.Request(GITHUB_RELEASE_URL, headers=headers)
-
-                total_size = 0
-                try:
-                    head_req = urllib.request.Request(GITHUB_RELEASE_URL, headers=headers, method="HEAD")
-                    with urllib.request.urlopen(head_req, timeout=8) as hresp:
-                        total_size = int(hresp.headers.get("Content-Length", 0))
-                except Exception:
-                    total_size = 0
-
-                downloaded = 0
-                t_start = time.time()
-                block_size = 16384
-
-                status_var.set("Downloading package...")
-
-                with urllib.request.urlopen(req, timeout=30) as resp, open(tmp_zip, "wb") as out_f:
-                    if total_size == 0:
-                        total_size = int(resp.headers.get("Content-Length", 0))
-                    total_mb = total_size / (1024 * 1024) if total_size > 0 else 0
-
-                    while True:
-                        chunk = resp.read(block_size)
-                        if not chunk:
-                            break
-                        out_f.write(chunk)
-                        downloaded += len(chunk)
-
-                        elapsed = max(time.time() - t_start, 0.001)
-                        speed_mb = (downloaded / elapsed) / (1024 * 1024)
-                        dl_mb = downloaded / (1024 * 1024)
-                        pct = (downloaded / total_size * 100) if total_size > 0 else 0
-
-                        pbar["value"] = pct
-                        if total_mb > 0:
-                            txt = f"{dl_mb:.1f} / {total_mb:.1f} MB  |  {speed_mb:.2f} MB/s  ({pct:.0f}%)"
-                        else:
-                            txt = f"{dl_mb:.1f} MB downloaded  |  {speed_mb:.2f} MB/s"
-                        detail_var.set(txt)
-                        win.update_idletasks()
-
-                # Extract ZIP
-                status_var.set("Extracting engine files...")
-                pbar["value"] = 90
-                detail_var.set("Extracting archive...")
-                win.update_idletasks()
-
-                if zipfile.is_zipfile(tmp_zip):
-                    with zipfile.ZipFile(tmp_zip, "r") as zf:
-                        zf.extractall(target_dir)
-                else:
-                    try:
-                        with tarfile.open(tmp_zip, "r:*") as tf:
-                            tf.extractall(target_dir)
-                    except Exception:
-                        shutil.copy(tmp_zip, os.path.join(target_dir, "archive.bin"))
-
-                if os.path.exists(tmp_zip):
-                    os.remove(tmp_zip)
-
-                # Rename exe if needed
-                for candidate in ("Nova2D.exe", "engine.exe"):
-                    old = os.path.join(target_dir, candidate)
-                    new = os.path.join(target_dir, "MoxEngine.exe")
-                    if os.path.exists(old) and not os.path.exists(new):
-                        os.rename(old, new)
-
-                pbar["value"] = 100
-                status_var.set("Installation complete!")
-                detail_var.set("")
-                win.update_idletasks()
-                time.sleep(0.3)
-
-                exe_found = self._find_exe_in_dir(target_dir)
-                entry = next((x for x in self.engine_versions if x["ver"] == "Mox Engine1"), None)
-                if entry:
-                    entry["status"] = "installed"
-                    entry["path"]   = exe_found or target_dir
-
-                self.active_version = "Mox Engine1"
-                self._save_data()
-                self.after(0, lambda: [
-                    win.destroy(),
-                    self._render_version_list(),
-                    self._update_status(),
-                    messagebox.showinfo(
-                        "✅ Mox Engine1 Installed!",
-                        f"Mox Engine downloaded & installed successfully!\n\n"
-                        f"Location: {target_dir}\n\n"
-                        f"Top bar now shows: ● MOX ENGINE READY"
-                    )
-                ])
-
-            except urllib.error.HTTPError as e:
-                if os.path.exists(tmp_zip):
-                    try: os.remove(tmp_zip)
-                    except Exception: pass
-                
-                is_404 = (e.code == 404)
-                if is_404:
-                    err_msg = (
-                        f"⚠️ HTTP 404: Engine Release Binary Not Found\n\n"
-                        f"The download URL returned 404 Not Found:\n{GITHUB_RELEASE_URL}\n\n"
-                        f"Please update GITHUB_RELEASE_URL in HUB/main.py with your actual GitHub release asset link.\n\n"
-                        f"Workarounds:\n"
-                        f"• Click '📦 Package Local Build' to use your locally compiled binary.\n"
-                        f"• Click '📂 Install from Local ZIP' to pick an offline archive."
-                    )
-                else:
-                    err_msg = f"HTTP Error {e.code}: {e.reason}\nURL: {GITHUB_RELEASE_URL}"
-
-                self.after(0, lambda msg=err_msg: [
-                    win.destroy(),
-                    messagebox.showerror("Download Error", msg)
-                ])
-
+                urllib.request.urlretrieve(GITHUB_RELEASE_URL, tmp_zip)
+                with zipfile.ZipFile(tmp_zip, "r") as zf: zf.extractall(target_dir)
+                os.remove(tmp_zip)
+                self.after(0, lambda: [win.destroy(), self._scan_installed_versions(), self._save_data(), self._render_version_list(), self._update_status(), messagebox.showinfo("Installed", "Mox Engine 1 Installed!")])
             except Exception as e:
-                if os.path.exists(tmp_zip):
-                    try: os.remove(tmp_zip)
-                    except Exception: pass
-                self.after(0, lambda err=e: [
-                    win.destroy(),
-                    messagebox.showerror("Download Error", f"Failed to download/install engine release:\n{err}")
-                ])
+                self.after(0, lambda err=e: [win.destroy(), messagebox.showerror("Download Error", str(err))])
 
         threading.Thread(target=_run, daemon=True).start()
 
-    def _show_build_instructions(self):
-        """Show a dialog with instructions to build and embed the engine."""
-        win = tk.Toplevel(self)
-        win.title("Build & Embed Mox Engine")
-        win.geometry("520x300")
-        win.configure(bg=C["bg"])
-        win.resizable(False, False)
-        win.grab_set()
+    # ═══════════════════════════════════════════════════════════════
+    # PAGE: LEARN & COMMUNITY & SETTINGS
+    # ═══════════════════════════════════════════════════════════════
+    def _build_page_learn(self):
+        page = self.pages["learn"]
+        hdr = tk.Frame(page, bg=D["bg"], padx=24, pady=16); hdr.pack(fill="x")
+        tk.Label(hdr, text="🎓 Learn Mox Engine", font=("Segoe UI", 18, "bold"), bg=D["bg"], fg=D["fg"]).pack(side="left")
 
-        tk.Label(win, text="🔨  Build & Embed Mox Engine",
-                 font=("Segoe UI", 13, "bold"), bg=C["bg"], fg=C["fg"]).pack(
-                 pady=(20, 8), padx=24, anchor="w")
-
-        steps = [
-            ("Step 1", "Make sure MinGW (w64devkit) is installed at C:\\Users\\walaa\\w64devkit"),
-            ("Step 2", "Run the following compilation script from the HUB folder:"),
-            ("→ File",  "HUB\\compile_engine.bat"),
-            ("Result",  "This compiles the engine directly to Engine\\build\\MoxEngine.exe\n"
-                        "and runs HUB/embed_engine.py to generate HUB/engine_payload.py."),
+        body = tk.Frame(page, bg=D["bg"], padx=24); body.pack(fill="both", expand=True)
+        tutorials = [
+            ("⭐ Quick Start Guide", "Learn how to build scenes, add Node2D elements, and write NovaScript logic."),
+            ("🎮 2D Physics & Collisions", "Configuring RigidBody2D, StaticBody2D, Area2D and custom bounciness."),
+            ("🎨 TileMap & World Building", "Using the built-in TileMap Painter Drawer and tile palettes."),
+            ("🎬 Animation & Sound Effects", "Keyframing Sprite2D properties and adding AudioStreamPlayer2D sounds."),
         ]
-        for lbl, txt in steps:
-            row = tk.Frame(win, bg=C["card"], padx=14, pady=8)
-            row.pack(fill="x", padx=24, pady=3)
-            tk.Label(row, text=lbl, font=("Segoe UI", 8, "bold"),
-                     bg=C["card"], fg=C["accent"], width=8, anchor="w").pack(side="left")
-            tk.Label(row, text=txt, font=("Consolas", 8),
-                     bg=C["card"], fg=C["fg"], anchor="w", wraplength=340,
-                     justify="left").pack(side="left", fill="x")
+        for title, desc in tutorials:
+            card = tk.Frame(body, bg=D["card"], bd=1, relief="solid", highlightbackground=D["border"], highlightthickness=1, padx=16, pady=12)
+            card.pack(fill="x", pady=4)
+            tk.Label(card, text=title, font=("Segoe UI", 11, "bold"), bg=D["card"], fg=D["accent_blue"]).pack(anchor="w")
+            tk.Label(card, text=desc, font=("Segoe UI", 9), bg=D["card"], fg=D["fg2"]).pack(anchor="w", pady=(2, 0))
 
-        bot = tk.Frame(win, bg=C["bg"], padx=24, pady=14)
-        bot.pack(fill="x", side="bottom")
-        self._mk_btn(bot, "Close", win.destroy, bg=C["card"], fg=C["fg"],
-                     padx=14, pady=6).pack(side="right")
+    def _build_page_community(self):
+        page = self.pages["community"]
+        hdr = tk.Frame(page, bg=D["bg"], padx=24, pady=16); hdr.pack(fill="x")
+        tk.Label(hdr, text="👥 Community & Links", font=("Segoe UI", 18, "bold"), bg=D["bg"], fg=D["fg"]).pack(side="left")
 
-    # ═══════════════════════════════════════════════════════════════
-    # PAGE: Settings
-    # ═══════════════════════════════════════════════════════════════
+        body = tk.Frame(page, bg=D["bg"], padx=24); body.pack(fill="both", expand=True)
+        links = [
+            ("🌐 Official GitHub Repository", "github.com/boody546/Mox-engine"),
+            ("📦 Latest Engine Release", "github.com/boody546/Mox-engine/releases/tag/v1.0.0"),
+            ("📜 Documentation & Guides", "github.com/boody546/Mox-engine#readme"),
+        ]
+        for title, url in links:
+            card = tk.Frame(body, bg=D["card"], bd=1, relief="solid", highlightbackground=D["border"], highlightthickness=1, padx=16, pady=12)
+            card.pack(fill="x", pady=4)
+            tk.Label(card, text=title, font=("Segoe UI", 11, "bold"), bg=D["card"], fg=D["fg"]).pack(anchor="w")
+            tk.Label(card, text=url, font=("Consolas", 9), bg=D["card"], fg=D["accent_blue"]).pack(anchor="w", pady=(2, 0))
+
     def _build_page_settings(self):
         page = self.pages["settings"]
+        hdr = tk.Frame(page, bg=D["bg"], padx=24, pady=16); hdr.pack(fill="x")
+        tk.Label(hdr, text="Settings", font=("Segoe UI", 18, "bold"), bg=D["bg"], fg=D["fg"]).pack(side="left")
 
-        hdr = tk.Frame(page, bg=C["bg"], padx=28, pady=20)
-        hdr.pack(fill="x")
-        tk.Label(hdr, text="Settings", font=("Segoe UI", 20, "bold"),
-                 bg=C["bg"], fg=C["fg"]).pack(side="left")
-
-        container = tk.Frame(page, bg=C["bg"], padx=28)
-        container.pack(fill="both", expand=True)
-
-        cfg = [
-            ("📁 Hub & Engine Directories", [
-                ("Engine Directory",    ENGINE_DIR),
-                ("Versions Storage",    VERSIONS_DIR),
-                ("Projects Directory",  PROJECTS_DIR),
-                ("Database Config",     PROJECTS_DB),
-            ]),
-            ("⚙️ Environment & Launcher", [
-                ("Default Engine Ver",  f"{self.active_version}"),
-                ("Graphics API Backend","DirectX 11 (Direct3D 11) / OpenGL (Dual Engine)"),
-                ("Target Architecture", "Windows x64 (MinGW/MSVC Hardware Accelerated)"),
-                ("Launcher Version",    "Mox HUB v3.0 (Unity-Style Binary Manager)"),
-            ]),
+        container = tk.Frame(page, bg=D["bg"], padx=24); container.pack(fill="both", expand=True)
+        rows = [
+            ("Projects Storage Directory", PROJECTS_DIR),
+            ("Engine Versions Storage", VERSIONS_DIR),
+            ("Projects Database File", PROJECTS_DB),
+            ("Active Engine Release", "Mox Engine 1"),
         ]
-
-        for section, rows in cfg:
-            card = tk.Frame(container, bg=C["card"], padx=18, pady=14)
-            card.pack(fill="x", pady=6)
-            tk.Label(card, text=section, font=("Segoe UI", 10, "bold"),
-                     bg=C["card"], fg=C["accent"]).pack(anchor="w", pady=(0, 8))
-            for key, val in rows:
-                row = tk.Frame(card, bg=C["card"])
-                row.pack(fill="x", pady=3)
-                tk.Label(row, text=key, width=22, anchor="w",
-                         font=("Segoe UI", 9), bg=C["card"], fg=C["fg2"]).pack(side="left")
-                tk.Label(row, text=val, font=("Consolas", 8),
-                         bg=C["card"], fg=C["fg"], anchor="w").pack(side="left", fill="x")
-
-        btns = tk.Frame(container, bg=C["bg"], pady=12)
-        btns.pack(fill="x")
-        for label, path in [("Open Engine Folder", ENGINE_DIR),
-                             ("Open Versions Directory", VERSIONS_DIR),
-                             ("Open Projects Directory", PROJECTS_DIR)]:
-            self._mk_btn(btns, f"📂 {label}",
-                         lambda p=path: os.startfile(p) if os.path.exists(p) else None,
-                         bg=C["card"], fg=C["fg"], padx=14, pady=6).pack(side="left", padx=(0, 8))
+        card = tk.Frame(container, bg=D["card"], bd=1, relief="solid", highlightbackground=D["border"], highlightthickness=1, padx=16, pady=12)
+        card.pack(fill="x", pady=6)
+        for k, v in rows:
+            r = tk.Frame(card, bg=D["card"]); r.pack(fill="x", pady=4)
+            tk.Label(r, text=k, font=("Segoe UI", 9), bg=D["card"], fg=D["fg2"], width=24, anchor="w").pack(side="left")
+            tk.Label(r, text=v, font=("Consolas", 8), bg=D["card"], fg=D["fg"]).pack(side="left")
 
     # ═══════════════════════════════════════════════════════════════
-    # Launch Engine & Status
+    # STATUS & UTILITIES
     # ═══════════════════════════════════════════════════════════════
     def launch_engine(self):
         exe_path = self._get_active_exe()
         if not exe_path or not os.path.exists(exe_path):
-            messagebox.showwarning("Engine Required",
-                f"No pre-compiled binary executable found for {self.active_version}.\n\n"
-                "Please go to the 'Installs' tab and download or package a Mox Engine binary.")
+            messagebox.showwarning("Engine Required", "No binary executable found for Mox Engine 1.")
             return
-
         try:
-            work_dir = os.path.dirname(exe_path)
-            subprocess.Popen([exe_path], cwd=work_dir)
-        except Exception as e:
-            messagebox.showerror("Launch Error", str(e))
+            subprocess.Popen([exe_path], cwd=os.path.dirname(exe_path))
+        except Exception as e: messagebox.showerror("Error", str(e))
 
     def _update_status(self):
         exe_path = self._get_active_exe()
         if exe_path and os.path.exists(exe_path):
-            self.lbl_status.configure(text=f"● MOX ENGINE READY ({self.active_version})", fg=C["success"])
+            self.lbl_status.configure(text="🟢 MOX ENGINE READY (Mox Engine 1)", fg=D["success"])
         else:
-            self.lbl_status.configure(text="▲ NO MOX ENGINE INSTALLED", fg=C["warning"])
+            self.lbl_status.configure(text="▲ NO MOX ENGINE BINARY FOUND", fg=D["warning"])
 
-    # ─── Helpers ───────────────────────────────────────────────────
-    def _mk_btn(self, parent, text, command, bg=None, fg=None,
-                font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2"):
-        bg = bg or C["card"]
-        fg = fg or C["fg"]
-        btn = tk.Button(parent, text=text, command=command,
-                        bg=bg, fg=fg, activebackground=self._lighten(bg),
-                        activeforeground=fg, font=font, relief="flat",
-                        padx=padx, pady=pady, cursor=cursor, bd=0,
+    def _mk_btn(self, parent, text, command, bg=None, fg=None, font=("Segoe UI", 9), padx=10, pady=4):
+        bg = bg or D["card"]
+        fg = fg or D["fg"]
+        btn = tk.Button(parent, text=text, command=command, bg=bg, fg=fg,
+                        activebackground=self._lighten(bg), activeforeground=fg,
+                        font=font, relief="flat", padx=padx, pady=pady, cursor="hand2", bd=0,
                         highlightthickness=0)
         btn.bind("<Enter>", lambda e: btn.configure(bg=self._lighten(btn.cget("bg"))))
         btn.bind("<Leave>", lambda e: btn.configure(bg=bg))
@@ -1308,10 +995,18 @@ class MoxHubApp(tk.Tk):
         try:
             hex_color = hex_color.lstrip("#")
             r, g, b = (int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-            r, g, b = min(255, r+28), min(255, g+28), min(255, b+28)
+            r, g, b = min(255, r+20), min(255, g+20), min(255, b+20)
             return f"#{r:02x}{g:02x}{b:02x}"
         except Exception:
             return hex_color
+
+
+def mk_btn(parent, text, command, bg=None, fg=None, font=("Segoe UI", 9), padx=10, pady=4):
+    bg = bg or D["card"]
+    fg = fg or D["fg"]
+    return tk.Button(parent, text=text, command=command, bg=bg, fg=fg,
+                     activebackground=D["card_hover"], activeforeground=fg,
+                     font=font, relief="flat", padx=padx, pady=pady, cursor="hand2", bd=0)
 
 
 # ═══════════════════════════════════════════════════════════════════

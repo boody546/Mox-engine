@@ -58,7 +58,7 @@ if exist "%ENGINE_DIR%\third_party" (
 set "SDL2_DIR=%THIRD_PARTY%\SDL2-2.30.2\x86_64-w64-mingw32"
 
 echo  [3/5] Compiling C++ source files from %SRC_DIR%...
-set CXXFLAGS=-std=c++17 -Wall -Wextra -O2 -I "%SRC_DIR%" -I "%SDL2_DIR%\include\SDL2" -I "%THIRD_PARTY%\stb" -I "%THIRD_PARTY%\nlohmann"
+set CXXFLAGS=-std=c++17 -Wall -Wextra -Wno-unused-parameter -O2 -I "%SRC_DIR%" -I "%SDL2_DIR%\include\SDL2" -I "%THIRD_PARTY%\stb" -I "%THIRD_PARTY%\nlohmann" -DJSON_NOEXCEPTION
 
 set COMPILE_OK=1
 
@@ -74,6 +74,7 @@ set COMPILE_OK=1
 "%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scene\Node.cpp"           -o "%TARGET_BUILD%\Node.o"           || set COMPILE_OK=0
 "%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scene\SceneTree.cpp"      -o "%TARGET_BUILD%\SceneTree.o"      || set COMPILE_OK=0
 "%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scene\ScriptNode.cpp"     -o "%TARGET_BUILD%\ScriptNode.o"     || set COMPILE_OK=0
+"%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scene\SceneLoader.cpp"    -o "%TARGET_BUILD%\SceneLoader.o"    || set COMPILE_OK=0
 "%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scripting\Lexer.cpp"      -o "%TARGET_BUILD%\Lexer.o"          || set COMPILE_OK=0
 "%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scripting\Parser.cpp"     -o "%TARGET_BUILD%\Parser.o"         || set COMPILE_OK=0
 "%GXX%" %CXXFLAGS% -c "%SRC_DIR%\scripting\Interpreter.cpp" -o "%TARGET_BUILD%\Interpreter.o"   || set COMPILE_OK=0
