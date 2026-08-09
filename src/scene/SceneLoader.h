@@ -6,6 +6,7 @@
 //  Format: { "version":"4.0", "scene": [ { "id","name","type","parent","props":{} }, … ] }
 // ═══════════════════════════════════════════════════════════════════
 
+#include "core/Math.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,7 +44,7 @@ private:
 
     // ── Utility ─────────────────────────────────────────────────────
     // Parse "#rrggbb" or "#rrggbbaa" hex colour string → Color
-    static Nova::Color _hexToColor(const std::string& hex);
+    static Color _hexToColor(const std::string& hexStr);
 };
 
 } // namespace Nova

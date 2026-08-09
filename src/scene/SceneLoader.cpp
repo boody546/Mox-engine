@@ -46,9 +46,9 @@ using json = nlohmann::json;
 namespace Nova {
 
 // ─── Utility: parse "#rrggbb" / "#rrggbbaa" ───────────────────────
-Color SceneLoader::_hexToColor(const std::string& hex) {
-    if (hex.empty() || hex[0] != '#') return Color::White();
-    std::string h = hex.substr(1);
+Color SceneLoader::_hexToColor(const std::string& hexStr) {
+    if (hexStr.empty() || hexStr[0] != '#') return Color::White();
+    std::string h = hexStr.substr(1);
     // Pad to 8 chars if needed
     if (h.size() == 3) {
         h = {h[0],h[0],h[1],h[1],h[2],h[2],'f','f'};
